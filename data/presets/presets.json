@@ -25,5 +25,14 @@
     "mode": "mc",
     "n_trials": 5000,
     "ci_level": 0.95
+  },
+  {
+    "id": "preset_good_aim",
+    "name": "Good Aim 40/50/10 (precomputed, 5000 trials, 95% CI)",
+    "file": "preset_good_aim.json",
+    "kind": "precomputed",
+    "mode": "mc",
+    "n_trials": 5000,
+    "ci_level": 0.95
   }
 ]

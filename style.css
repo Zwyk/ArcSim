@@ -209,3 +209,36 @@ tbody td{
   font-size:11px;
   color:var(--muted);
 }
+
+.tierChecks{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:6px;
+}
+
+.tierPill{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  font-size:13px;
+}
+
+th.sortable{
+  cursor:pointer;
+  user-select:none;
+}
+
+th.sortable:hover{
+  background: rgba(255,255,255,.06);
+}
+
+.sortArrow{
+  opacity:.65;
+  margin-left:6px;
+  font-size:11px;
+}

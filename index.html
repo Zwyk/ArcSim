@@ -21,8 +21,8 @@
         <label class="label">Target</label>
         <select id="targetSelect"></select>
 
-        <label class="label">Tier</label>
-        <select id="tierSelect"></select>
+        <label class="label">Tiers</label>
+        <div id="tierChecks" class="tierChecks"></div>
 
         <label class="label">Top N</label>
         <input id="topN" type="number" min="10" step="10" value="200" />
@@ -30,6 +30,11 @@
         <label class="check">
           <input id="stackEq" type="checkbox" checked />
           Stack equivalent results (same TTK)
+        </label>
+
+        <label class="check">
+          <input id="baseOnly" type="checkbox" />
+          Base only (no attachments)
         </label>
 
         <label class="label">Stack tolerance (seconds)</label>
@@ -101,17 +106,17 @@
         <table>
           <thead>
             <tr>
-              <th>weapon</th>
-              <th>tier</th>
-              <th>attachments</th>
-              <th class="num">ttk</th>
-              <th class="num">shots</th>
-              <th class="num">reloads</th>
-              <th class="num">dmg</th>
-              <th class="num">bps</th>
-              <th class="num">mag</th>
-              <th class="num">rld</th>
-              <th class="num">ra</th>
+              <th class="sortable" data-sort="weapon">weapon</th>
+              <th class="sortable num" data-sort="tier">tier</th>
+              <th class="sortable" data-sort="attachments">attachments</th>
+              <th class="sortable num" data-sort="ttk">ttk</th>
+              <th class="sortable num" data-sort="shots">shots</th>
+              <th class="sortable num" data-sort="reloads">reloads</th>
+              <th class="sortable num" data-sort="dmg">dmg</th>
+              <th class="sortable num" data-sort="bps">bps</th>
+              <th class="sortable num" data-sort="mag">mag</th>
+              <th class="sortable num" data-sort="rld">rld</th>
+              <th class="sortable num" data-sort="ra">ra</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>

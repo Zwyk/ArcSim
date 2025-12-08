@@ -37,26 +37,84 @@ function setSelectOptions(selectEl, values, preferredValue) {
   else if (values.length) selectEl.value = values[0];
 }
 
+function getSelectedTiers(){
+  const boxes = document.querySelectorAll("#tierChecks input[type=checkbox]");
+  const selected = [];
+  boxes.forEach(b => { if (b.checked) selected.push(+b.value); });
+  return selected.length ? selected : null; // null => means "all"
+}
+
+function buildTierCheckboxes(tiers){
+  const wrap = $("tierChecks");
+  const prev = new Set(getSelectedTiers() || tiers);
+
+  wrap.innerHTML = "";
+  for(const t of tiers){
+    const id = `tier_${t}`;
+    const label = document.createElement("label");
+    label.className = "tierPill";
+    label.innerHTML = `<input type="checkbox" id="${id}" value="${t}"> Tier ${t}`;
+    wrap.appendChild(label);
+
+    const cb = label.querySelector("input");
+    cb.checked = prev.has(t);
+    cb.addEventListener("change", render);
+  }
+}
+
 function syncTargetTierFromRows(rows) {
-  const targets = [...new Set(rows.map(r => r.target))].sort();
-  const tiers = [...new Set(rows.map(r => +r.tier))].sort((a,b)=>a-b);
+  // Collect targets
+  const targets = Array.from(new Set(rows.map(r=> r.target))).sort();
+  setSelectOptions($("targetSelect"), targets.map(t=> ({value: t, label: t})), $("targetSelect").value || targets[0]);
+
+  // Collect tiers and build checkboxes
+  const tiers = Array.from(new Set(rows.map(r=> +r.tier))).sort((a,b)=> a-b);
+  const cont = $("tierChecks");
+  cont.innerHTML = "";
+  tiers.forEach(t => {
+    const id = `tier-${t}`;
+    const label = document.createElement("label");
+    label.className = "tierPill";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.id = id;
+    cb.value = String(t);
+    cb.checked = true;
+    cb.addEventListener("change", render);
+    const span = document.createElement("span");
+    span.textContent = `T${t}`;
+    label.appendChild(cb);
+    label.appendChild(span);
+    cont.appendChild(label);
+  });
 
   setSelectOptions($("targetSelect"), targets, $("targetSelect").value);
-  setSelectOptions($("tierSelect"), tiers.map(String), $("tierSelect").value);
+function getSelectedTiers(){
+  return Array.from(document.querySelectorAll('#tierChecks input[type="checkbox"]:checked'))
+    .map(cb => +cb.value);
+}
+  buildTierCheckboxes(tiers);
 }
 
 async function loadPresetFile(file) {
   setStatus(`Loading ${file}…`);
   try {
-    const rows = await fetchJSON(PATH_PRESETS + file);
-    currentRows = rows;
-    $("heading").textContent = `Fastest setups — ${$("presetSelect").selectedOptions[0].textContent}`;
-    syncTargetTierFromRows(currentRows);
-    setStatus("");
-    // append preset metadata (trials/CI) when present
+    currentRows = await fetchJSON(PATH_PRESETS + file);
+
+    const presetName = $("presetSelect").selectedOptions[0].textContent;
     const meta = presetMetaFromRows(currentRows);
-    const sub = $("subheading");
-    sub.textContent = sub.textContent ? `${sub.textContent}${meta?` · ${meta}`:``}` : (meta || "");
+
+    $("heading").textContent = meta
+      ? `Fastest setups — ${presetName} · ${meta}`
+      : `Fastest setups — ${presetName}`;
+
+    document.title = meta
+      ? `ARC Raiders — ${presetName} · ${meta}`
+      : `ARC Raiders — ${presetName}`;
+
+    syncTargetTierFromRows(currentRows);
+    setStatus(""
+    );
     render();
   } catch (e) {
     setStatus(`❌ Failed to load ${file}: ${e?.message || e}`);
@@ -66,13 +124,49 @@ async function loadPresetFile(file) {
 function setStatus(msg){ $("status").textContent = msg || ""; }
 
 function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+// Build a readable title for custom sim
+function customSimTitle(p){
+  const body = Math.round((p.body ?? 0) * 100);
+  const head = Math.round((p.head ?? 0) * 100);
+  const limbs = Math.round((p.limbs ?? 0) * 100);
+  const miss = Math.round((p.miss ?? 0) * 100);
+
+  const tiers = (p.tiers && p.tiers.length)
+    ? `T${p.tiers.join(',')}`
+    : "T(all)";
+
+  const trials = p.trials ? `${p.trials} trials` : null;
+  const cl = (p.confidence != null) ? `${Math.round(p.confidence * 100)}% CI` : null;
+
+  const parts = [
+    `Custom ${body}/${head}/${limbs}`,
+    `miss ${miss}%`,
+    tiers,
+    trials,
+    cl
+  ].filter(Boolean);
+
+  return parts.join(" · ");
+}
+
+function setCustomTitle(p){
+  const t = customSimTitle(p);
+  $("heading").textContent = `Fastest setups — ${t}`;
+  document.title = `ARC Raiders — ${t}`;
+}
 function presetMetaFromRows(rows){
-  const r = rows && rows[0];
-  if(!r) return "";
-  if(Number.isFinite(r.n_trials) && Number.isFinite(r.ci_level)){
-    return `${r.n_trials} trials · ${Math.round(r.ci_level*100)}% CI`;
+  const r = rows?.[0];
+  if (!r) return "";
+
+  const parts = [];
+
+  if (Number.isFinite(r.miss) && r.miss > 0){
+    parts.push(`miss ${Math.round(r.miss * 100)}%`);
   }
-  return "";
+  if (Number.isFinite(r.n_trials)) parts.push(`${r.n_trials} trials`);
+  if (Number.isFinite(r.ci_level)) parts.push(`${Math.round(r.ci_level * 100)}% CI`);
+
+  return parts.join(" · ");
 }
 
 function pctLabel(){
@@ -91,6 +185,9 @@ pctLabel();
 let presetManifest = [];
 let currentRows = [];
 let worker = null;
+let sortKey = "ttk";
+let sortDir = "asc"; // "asc" or "desc"
+let lastCustomParams = null;
 
 function metricTTK(row){
   // precomputed uses ttk_s, simulated uses ttk_p50
@@ -153,24 +250,74 @@ function stackEquivalent(rows, tol){
   return out;
 }
 
+function getCellValue(r, key){
+  switch(key){
+    case "weapon": return r.weapon ?? "";
+    case "tier": return +r.tier;
+    case "attachments": return r.attachments ?? "";
+    case "ttk": return metricTTK(r) ?? Infinity;
+    case "shots": return metricShots(r) ?? Infinity;
+    case "reloads": return (r.reloads_mean ?? r.reloads) ?? Infinity;
+    case "dmg": return +r.damage_per_bullet ?? 0;
+    case "bps": return +r.fire_rate_bps ?? 0;
+    case "mag": return +r.mag_size ?? 0;
+    case "rld": return +r.reload_time_s ?? 0;
+    case "ra": return +r.reload_amount ?? 0;
+    default: return metricTTK(r) ?? Infinity;
+  }
+}
+
+function compare(a, b, dir){
+  if (typeof a === "string" || typeof b === "string"){
+    const aa = String(a).toLowerCase();
+    const bb = String(b).toLowerCase();
+    const c = aa.localeCompare(bb);
+    return dir === "asc" ? c : -c;
+  }
+  const aa = Number(a);
+  const bb = Number(b);
+  const c = (aa < bb) ? -1 : (aa > bb) ? 1 : 0;
+  return dir === "asc" ? c : -c;
+}
+
+function updateSortIndicators(){
+  document.querySelectorAll("th.sortable").forEach(th => {
+    const k = th.dataset.sort;
+    const base = th.textContent.replace(/[\s▲▼].*$/, "").trim();
+    th.textContent = base;
+    if (k === sortKey){
+      th.innerHTML = `${base}<span class="sortArrow">${sortDir === "asc" ? "▲" : "▼"}</span>`;
+    }
+  });
+}
+
 function render(){
+  updateSortIndicators();
   const target = $("targetSelect").value;
-  const tier = +$("tierSelect").value;
+  const selectedTiers = getSelectedTiers();
+  const baseOnly = $("baseOnly").checked;
   const topN = Math.max(10, +$("topN").value || 200);
 
-  let rows = currentRows.filter(r => r.target === target && +r.tier === tier);
+  let rows = currentRows.filter(r => r.target === target);
+  if (selectedTiers && selectedTiers.length){
+    const set = new Set(selectedTiers);
+    rows = rows.filter(r => set.has(+r.tier));
+  }
+  if (baseOnly){
+    rows = rows.filter(r => (r.attachments === "none" || !r.attachments));
+  }
   const stackOn = $("stackEq").checked;
   const tol = Math.max(0.0000001, +$("stackTol").value || 0.000001);
 
   if(stackOn) rows = stackEquivalent(rows, tol);
 
-  rows.sort((a,b)=> metricTTK(a) - metricTTK(b));
+  rows.sort((a,b)=> compare(getCellValue(a, sortKey), getCellValue(b, sortKey), sortDir));
   const shown = rows.slice(0, topN);
 
   $("rowsCount").textContent = `${rows.length}`;
   $("weaponsCount").textContent = `${new Set(rows.map(r=>r.weapon)).size}`;
 
-  $("subheading").textContent = `Target: ${target} · Tier: ${tier} · Showing top ${shown.length}`;
+  $("subheading").textContent = `Target: ${target} · Showing top ${shown.length}`;
 
   const tbody = $("tbody");
   tbody.innerHTML = "";
@@ -260,31 +407,67 @@ function downloadCurrent(){
 $("downloadBtn").addEventListener("click", downloadCurrent);
 
 async function init(){
-  // Load preset manifest
+  // Load preset manifest and populate preset selector
   presetManifest = await fetchJSON(PATH_PRESETS + "presets.json");
   const presetSelect = $("presetSelect");
   presetSelect.innerHTML = "";
-  for(const p of presetManifest){
+  presetManifest.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.file;
     opt.textContent = p.name;
     presetSelect.appendChild(opt);
-  }
-
-  // Target/tier dropdowns will be populated from loaded preset rows
-
-  $("targetSelect").addEventListener("change", render);
-  $("tierSelect").addEventListener("change", render);
-  $("topN").addEventListener("change", render);
-  $("stackEq").addEventListener("change", render);
-  $("stackTol").addEventListener("change", render);
-
-  // Load initial preset
-  presetSelect.addEventListener("change", async () => {
-    await loadPresetFile(presetSelect.value);
   });
 
-  await loadPresetFile(presetSelect.value);
+    // title helper moved to global scope: setCustomTitle
+
+  // Filters
+  $("targetSelect").addEventListener("change", render);
+  $("baseOnly").addEventListener("change", render);
+  $("topN").addEventListener("input", render);
+  $("stackEq").addEventListener("change", render);
+  $("stackTol").addEventListener("input", render);
+  $("confidence").addEventListener("change", ()=>{
+    render();
+    if(currentMode === "custom"){
+      runCustomSim();
+    }
+  });
+
+  // Sorting
+  document.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", ()=>{
+      const key = th.dataset.sort;
+      if (!key) return;
+      if (sortKey === key){
+        sortDir = (sortDir === "asc") ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = "asc";
+      }
+      render();
+    });
+  });
+
+  // Add fixed Custom option
+  {
+    const opt = document.createElement("option");
+    opt.value = "__custom__";
+    opt.textContent = "Custom (simulated)";
+    presetSelect.insertBefore(opt, presetSelect.firstChild);
+  }
+
+  // Load initial preset and handle changes
+  presetSelect.addEventListener("change", async () => {
+    const v = presetSelect.value;
+    if(v === "__custom__"){
+      // Ignore; stays on current rows
+      return;
+    }
+    await loadPresetFile(v);
+  });
+  if(presetSelect.value !== "__custom__"){
+    await loadPresetFile(presetSelect.value);
+  }
 
   // Worker for custom simulation
   worker = new Worker("sim.worker.js");
@@ -296,6 +479,8 @@ async function init(){
     }
     if(msg.type === "DONE"){
       currentRows = msg.rows;
+      setCustomTitle(lastCustomParams || {});
+      $("presetSelect").value = "__custom__";
       syncTargetTierFromRows(currentRows);
       setStatus(`Done. Rows: ${currentRows.length}`);
       $("downloadBtn").disabled = false;
@@ -311,7 +496,6 @@ async function init(){
   useCustom.addEventListener("change", ()=>{
     $("runBtn").disabled = !useCustom.checked;
   });
-
   $("runBtn").addEventListener("click", runCustomSim);
 }
 
@@ -325,7 +509,7 @@ async function runCustomSim(){
     $("runBtn").disabled = true;
 
     const target = $("targetSelect").value;
-    const tiers = [+$("tierSelect").value];
+    const tiers = getSelectedTiers();
 
     const head = clamp01((+$("headPct").value)/100);
     const limbs = clamp01((+$("limbsPct").value)/100);
@@ -337,14 +521,18 @@ async function runCustomSim(){
     const confidence = parseFloat($("confidence").value || "0.95");
 
     const params = { target, tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence };
+    lastCustomParams = { body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), tiers, trials, confidence };
 
     const key = cacheKey(params);
     const cached = localStorage.getItem(key);
     if(cached){
       currentRows = JSON.parse(cached);
+      setCustomTitle(lastCustomParams || {});
+      $("presetSelect").value = "__custom__";
       setStatus("Loaded from cache.");
       $("downloadBtn").disabled = false;
       $("runBtn").disabled = false;
+      syncTargetTierFromRows(currentRows);
       render();
       return;
     }

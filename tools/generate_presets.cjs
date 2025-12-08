@@ -485,6 +485,7 @@ const presets = [
   { id:"preset_body_only", name:"Body only (precomputed)", file:"preset_body_only.json", mode:"det", profile:"Body only", w:{body:1, head:0, limbs:0} },
   { id:"preset_head_only", name:"Head only (precomputed)", file:"preset_head_only.json", mode:"det", profile:"Head only", w:{body:0, head:1, limbs:0} },
   { id:"preset_typical", name:`Typical 70/10/20 (precomputed, ${OPT.trials} trials, ${Math.round(OPT.confidence*100)}% CI)`, file:"preset_typical.json", mode:"mc", profile:"Typical", w:{body:0.7, head:0.1, limbs:0.2}, trials: OPT.trials, ci: OPT.confidence, seed: OPT.seed },
+  { id:"preset_good_aim", name:`Good Aim 40/50/10 (precomputed, ${OPT.trials} trials, ${Math.round(OPT.confidence*100)}% CI)`, file:"preset_good_aim.json", mode:"mc", profile:"Good AAim", w:{body:0.4, head:0.5, limbs:0.1}, trials: OPT.trials, ci: OPT.confidence, seed: OPT.seed },
 ];
 
 writeJSON("data/presets/presets.json", presets.map(p => ({
