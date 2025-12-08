@@ -1,7 +1,6 @@
 const $ = (id) => document.getElementById(id);
 
 const PATH_PRESETS = "data/presets/";
-const FILE_ALL = "data/ttk_results.json";
 const FILE_WEAPONS = "data/weapons.json";
 const FILE_ATTACH = "data/attachments.json";
 
@@ -31,9 +30,50 @@ async function fetchJSON(url){
   return await r.json();
 }
 
+function setSelectOptions(selectEl, values, preferredValue) {
+  const cur = preferredValue ?? selectEl.value;
+  selectEl.innerHTML = values.map(v => `<option value="${v}">${v}</option>`).join("");
+  if (values.includes(cur)) selectEl.value = cur;
+  else if (values.length) selectEl.value = values[0];
+}
+
+function syncTargetTierFromRows(rows) {
+  const targets = [...new Set(rows.map(r => r.target))].sort();
+  const tiers = [...new Set(rows.map(r => +r.tier))].sort((a,b)=>a-b);
+
+  setSelectOptions($("targetSelect"), targets, $("targetSelect").value);
+  setSelectOptions($("tierSelect"), tiers.map(String), $("tierSelect").value);
+}
+
+async function loadPresetFile(file) {
+  setStatus(`Loading ${file}…`);
+  try {
+    const rows = await fetchJSON(PATH_PRESETS + file);
+    currentRows = rows;
+    $("heading").textContent = `Fastest setups — ${$("presetSelect").selectedOptions[0].textContent}`;
+    syncTargetTierFromRows(currentRows);
+    setStatus("");
+    // append preset metadata (trials/CI) when present
+    const meta = presetMetaFromRows(currentRows);
+    const sub = $("subheading");
+    sub.textContent = sub.textContent ? `${sub.textContent}${meta?` · ${meta}`:``}` : (meta || "");
+    render();
+  } catch (e) {
+    setStatus(`❌ Failed to load ${file}: ${e?.message || e}`);
+  }
+}
+
 function setStatus(msg){ $("status").textContent = msg || ""; }
 
 function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+function presetMetaFromRows(rows){
+  const r = rows && rows[0];
+  if(!r) return "";
+  if(Number.isFinite(r.n_trials) && Number.isFinite(r.ci_level)){
+    return `${r.n_trials} trials · ${Math.round(r.ci_level*100)}% CI`;
+  }
+  return "";
+}
 
 function pctLabel(){
   const head = +$("headPct").value;
@@ -142,6 +182,14 @@ function render(){
     const ttk = metricTTK(r);
     const shots = metricShots(r);
 
+    const clPct = r.ci_level ? Math.round(r.ci_level * 100) : null;
+    let ttkExtra = "";
+    if(Number.isFinite(r.ttk_p50_ci_low) && Number.isFinite(r.ttk_p50_ci_high) && clPct){
+      const half = (r.ttk_p50_ci_high - r.ttk_p50_ci_low) / 2;
+      const rel = (Number.isFinite(r.ttk_ci_rel) ? (r.ttk_ci_rel * 100) : null);
+      ttkExtra = `<div class="sub">${clPct}% CI: ${fmt(r.ttk_p50_ci_low)}–${fmt(r.ttk_p50_ci_high)} (±${fmt(half)}s${rel!=null?`, ${rel.toFixed(1)}%`:``})</div>`;
+    }
+
     const variants = r._variants && r._variants.length ? r._variants : null;
     const attCell = variants
       ? `<span class="variantLink" data-variants="${encodeURIComponent(JSON.stringify(variants))}">${escapeHtml(r.attachments)}</span>`
@@ -152,7 +200,7 @@ function render(){
       <td class="${wClass}">${escapeHtml(r.weapon)}</td>
       <td class="num">${r.tier}</td>
       <td>${attCell}</td>
-      <td class="num">${fmt(ttk)}s</td>
+      <td class="num">${fmt(ttk)}s${ttkExtra}</td>
       <td class="num">${shots ?? ""}</td>
       <td class="num">${fmt(r.reloads_mean ?? r.reloads)}</td>
       <td class="num">${fmt(r.damage_per_bullet)}</td>
@@ -223,13 +271,7 @@ async function init(){
     presetSelect.appendChild(opt);
   }
 
-  // Build target/tier dropdowns from the big file (fallback) so UI always has values
-  const all = await fetchJSON(FILE_ALL); // expects you copied ttk_results.json here
-  const targets = [...new Set(all.map(r=>r.target))].sort();
-  const tiers = [...new Set(all.map(r=>+r.tier))].sort((a,b)=>a-b);
-
-  $("targetSelect").innerHTML = targets.map(t=>`<option value="${t}">${t}</option>`).join("");
-  $("tierSelect").innerHTML = tiers.map(t=>`<option value="${t}">${t}</option>`).join("");
+  // Target/tier dropdowns will be populated from loaded preset rows
 
   $("targetSelect").addEventListener("change", render);
   $("tierSelect").addEventListener("change", render);
@@ -238,16 +280,11 @@ async function init(){
   $("stackTol").addEventListener("change", render);
 
   // Load initial preset
-  presetSelect.addEventListener("change", async ()=>{
-    const file = presetSelect.value;
-    currentRows = await fetchJSON(PATH_PRESETS + file);
-    $("heading").textContent = `Fastest setups — ${presetSelect.selectedOptions[0].textContent}`;
-    render();
+  presetSelect.addEventListener("change", async () => {
+    await loadPresetFile(presetSelect.value);
   });
 
-  currentRows = await fetchJSON(PATH_PRESETS + presetSelect.value);
-  $("heading").textContent = `Fastest setups — ${presetSelect.selectedOptions[0].textContent}`;
-  render();
+  await loadPresetFile(presetSelect.value);
 
   // Worker for custom simulation
   worker = new Worker("sim.worker.js");
@@ -259,6 +296,7 @@ async function init(){
     }
     if(msg.type === "DONE"){
       currentRows = msg.rows;
+      syncTargetTierFromRows(currentRows);
       setStatus(`Done. Rows: ${currentRows.length}`);
       $("downloadBtn").disabled = false;
       render();
@@ -296,8 +334,9 @@ async function runCustomSim(){
 
     const trials = Math.max(100, +$("trials").value || 1000);
     const seed = (+$("seed").value || 1337) >>> 0;
+    const confidence = parseFloat($("confidence").value || "0.95");
 
-    const params = { target, tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed };
+    const params = { target, tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence };
 
     const key = cacheKey(params);
     const cached = localStorage.getItem(key);

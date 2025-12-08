@@ -1,5 +1,29 @@
 [
-  { "id": "preset_body_only", "name": "Body only (precomputed)", "file": "preset_body_only.json", "kind": "precomputed" },
-  { "id": "preset_head_only", "name": "Head only (precomputed)", "file": "preset_head_only.json", "kind": "precomputed" },
-  { "id": "preset_typical", "name": "Typical 70/10/20 (precomputed)", "file": "preset_typical.json", "kind": "precomputed" }
+  {
+    "id": "preset_body_only",
+    "name": "Body only (precomputed)",
+    "file": "preset_body_only.json",
+    "kind": "precomputed",
+    "mode": "det",
+    "n_trials": null,
+    "ci_level": null
+  },
+  {
+    "id": "preset_head_only",
+    "name": "Head only (precomputed)",
+    "file": "preset_head_only.json",
+    "kind": "precomputed",
+    "mode": "det",
+    "n_trials": null,
+    "ci_level": null
+  },
+  {
+    "id": "preset_typical",
+    "name": "Typical 70/10/20 (precomputed, 5000 trials, 95% CI)",
+    "file": "preset_typical.json",
+    "kind": "precomputed",
+    "mode": "mc",
+    "n_trials": 5000,
+    "ci_level": 0.95
+  }
 ]

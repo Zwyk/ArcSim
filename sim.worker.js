@@ -56,7 +56,7 @@ function buildWeaponBase(w){
     reload_time_s: w.reload_time_s,
     reload_amount: w.reload_amount ?? 0,
     headshot_mult: w.headshot_mult ?? 2.0, // fallback
-    limbs_mult: w.limbs_mult ?? 1.0,
+    limbs_mult: w.limbs_mult ?? 0.75,
     tier_mods: w.tier_mods || {},
   };
 }
@@ -207,13 +207,54 @@ function percentile(sorted, p){
   return sorted[idx];
 }
 
+function zForCL(cl){
+  if (cl >= 0.99) return 2.575829; // 99%
+  if (cl >= 0.95) return 1.959964; // 95%
+  if (cl >= 0.90) return 1.644854; // 90%
+  return 1.959964;
+}
+
+function mean(arr){
+  let s = 0;
+  for(const x of arr) s += x;
+  return s / arr.length;
+}
+
+function stddev(arr, m){
+  if(arr.length < 2) return 0;
+  let s2 = 0;
+  for(const x of arr){
+    const d = x - m;
+    s2 += d * d;
+  }
+  return Math.sqrt(s2 / (arr.length - 1));
+}
+
+function quantileCI(sorted, q, z){
+  const n = sorted.length;
+  if(n === 0) return [NaN, NaN];
+  if(n === 1) return [sorted[0], sorted[0]];
+
+  const mu = n * q;
+  const sigma = Math.sqrt(n * q * (1 - q));
+
+  let kLow = Math.floor(mu - z * sigma);
+  let kHigh = Math.ceil(mu + z * sigma);
+
+  kLow = Math.max(0, Math.min(n - 1, kLow));
+  kHigh = Math.max(0, Math.min(n - 1, kHigh));
+
+  if(kHigh < kLow){ const t = kLow; kLow = kHigh; kHigh = t; }
+  return [sorted[kLow], sorted[kHigh]];
+}
+
 self.onmessage = (ev) => {
   const msg = ev.data;
   if(msg.type !== "RUN_SIM") return;
 
   try{
     const { weapons, attachments, params } = msg;
-    const { target, tiers, body, head, limbs, miss, trials, seed } = params;
+    const { target, tiers, body, head, limbs, miss, trials, seed, confidence } = params;
 
     const tgt = TARGETS[target];
     if(!tgt) throw new Error(`Unknown target: ${target}`);
@@ -260,6 +301,7 @@ self.onmessage = (ev) => {
       const rng = mulberry32((seed + i*1013904223) >>> 0);
 
       const ttks = new Array(trials);
+      const shotsArr = new Array(trials);
       let shotsSum = 0;
       let reloadsSum = 0;
 
@@ -267,14 +309,28 @@ self.onmessage = (ev) => {
         const shots = shotsToKillTrial(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, rng);
         const tr = ttkAndReloadsFromShots(shots, cfg.stats);
         ttks[k] = tr.ttk;
+        shotsArr[k] = shots;
         shotsSum += shots;
         reloadsSum += tr.reloads;
       }
 
       ttks.sort((a,b)=>a-b);
+      shotsArr.sort((a,b)=>a-b);
+      const cl = confidence ?? 0.95;
+      const z = zForCL(cl);
+
+      const ttk_mean = mean(ttks);
+      const ttk_sd = stddev(ttks, ttk_mean);
+      const ttk_se = ttk_sd / Math.sqrt(ttks.length);
+      const ttk_mean_ci_low = ttk_mean - z * ttk_se;
+      const ttk_mean_ci_high = ttk_mean + z * ttk_se;
+
       const ttk_p50 = percentile(ttks, 0.50);
       const ttk_p95 = percentile(ttks, 0.95);
-      const ttk_mean = ttks.reduce((s,x)=>s+x,0) / ttks.length;
+      const [ttk_p50_ci_low, ttk_p50_ci_high] = quantileCI(ttks, 0.50, z);
+      const [ttk_p95_ci_low, ttk_p95_ci_high] = quantileCI(ttks, 0.95, z);
+      const ttk_ci_half = (ttk_p50_ci_high - ttk_p50_ci_low) / 2;
+      const ttk_ci_rel = ttk_p50 ? (ttk_ci_half / ttk_p50) : NaN;
 
       rows.push({
         weapon: cfg.weapon,
@@ -286,8 +342,24 @@ self.onmessage = (ev) => {
         miss: pMiss,
         target,
 
-        ttk_p50, ttk_p95, ttk_mean,
-        shots_p50: null, // optional; keeping minimal
+        ci_level: cl,
+
+        ttk_mean,
+        ttk_mean_ci_low,
+        ttk_mean_ci_high,
+
+        ttk_p50,
+        ttk_p50_ci_low,
+        ttk_p50_ci_high,
+
+        ttk_p95,
+        ttk_p95_ci_low,
+        ttk_p95_ci_high,
+
+        ttk_ci_half,
+        ttk_ci_rel,
+
+        shots_p50: percentile(shotsArr, 0.50),
         shots_mean: shotsSum / trials,
         reloads_mean: reloadsSum / trials,
 
