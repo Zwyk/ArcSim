@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ARC Raiders — TTK Explorer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="title">ARC Raiders</div>
+        <div class="subtitle">TTK Explorer (static)</div>
+      </div>
+
+      <div class="panel">
+        <label class="label">Preset</label>
+        <select id="presetSelect"></select>
+
+        <label class="label">Target</label>
+        <select id="targetSelect"></select>
+
+        <label class="label">Tier</label>
+        <select id="tierSelect"></select>
+
+        <label class="label">Top N</label>
+        <input id="topN" type="number" min="10" step="10" value="200" />
+
+        <label class="check">
+          <input id="stackEq" type="checkbox" checked />
+          Stack equivalent results (same TTK)
+        </label>
+
+        <label class="label">Stack tolerance (seconds)</label>
+        <input id="stackTol" type="number" min="0" step="0.000001" value="0.000001" />
+      </div>
+
+      <div class="panel">
+        <div class="panelTitle">Custom preset (simulated)</div>
+
+        <label class="check">
+          <input id="useCustom" type="checkbox" />
+          Enable custom accuracy + miss
+        </label>
+
+        <div class="row2">
+          <div>
+            <label class="label">Head %</label>
+            <input id="headPct" type="range" min="0" max="100" value="10" />
+          </div>
+          <div>
+            <label class="label">Limbs %</label>
+            <input id="limbsPct" type="range" min="0" max="100" value="20" />
+          </div>
+        </div>
+        <div class="hint" id="bodyLabel">Body: 70%, Head: 10%, Limbs: 20%</div>
+
+        <label class="label">Miss %</label>
+        <input id="missPct" type="range" min="0" max="95" value="10" />
+        <div class="hint" id="missLabel">Miss: 10%</div>
+
+        <div class="row2">
+          <div>
+            <label class="label">Trials</label>
+            <input id="trials" type="number" min="100" step="100" value="1000" />
+          </div>
+          <div>
+            <label class="label">Seed</label>
+            <input id="seed" type="number" min="0" step="1" value="1337" />
+          </div>
+        </div>
+
+        <button id="runBtn" disabled>Start simulation</button>
+        <div class="hint" id="status"></div>
+
+        <button id="downloadBtn" class="ghost" disabled>Download current rows (.json)</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="header">
+        <div>
+          <div class="h1" id="heading">Fastest setups</div>
+          <div class="hint" id="subheading"></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k" id="rowsCount">0</div><div class="v">rows</div></div>
+          <div class="stat"><div class="k" id="weaponsCount">0</div><div class="v">weapons</div></div>
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>weapon</th>
+              <th>tier</th>
+              <th>attachments</th>
+              <th class="num">ttk</th>
+              <th class="num">shots</th>
+              <th class="num">reloads</th>
+              <th class="num">dmg</th>
+              <th class="num">bps</th>
+              <th class="num">mag</th>
+              <th class="num">rld</th>
+              <th class="num">ra</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modalBox">
+      <div class="modalTitle">Variants</div>
+      <div id="modalBody" class="modalBody"></div>
+      <button id="modalClose" class="ghost">Close</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

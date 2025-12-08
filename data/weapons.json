@@ -1,0 +1,300 @@
+[
+  {
+    "name": "Bobcat",
+    "damage": 6.0,
+    "fire_rate": 17.15,
+    "mag_size": 50,
+    "reload_time_s": 3.45,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2
+  },
+  {
+    "name": "Tempest",
+    "damage": 10.0,
+    "fire_rate": 9.23,
+    "mag_size": 25,
+    "reload_time_s": 3.75,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 1.5
+  },
+  {
+    "name": "Vulcano",
+    "damage": 49.5,
+    "fire_rate": 1.93,
+    "mag_size": 4,
+    "reload_time_s": 3.5,
+    "tier_mods": {
+      "fire_rate_pct": [
+        10.0,
+        20.0,
+        30.0
+      ],
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 1
+  },
+  {
+    "name": "Bettina",
+    "damage": 14.0,
+    "fire_rate": 4.78,
+    "mag_size": 14,
+    "reload_time_s": 5.7,
+    "tier_mods": {
+      "fire_rate_pct": [
+        5.0,
+        10.0,
+        15.0
+      ],
+      "reload_time_reduction_pct": [
+        11.1,
+        22.2,
+        33.3
+      ]
+    },
+    "headshot_mult": 2
+  },
+  {
+    "name": "Torrente",
+    "damage": 8.0,
+    "fire_rate": 13.36,
+    "mag_size": 60,
+    "reload_time_s": 8.03,
+    "tier_mods": {
+      "mag_add": [
+        10.0,
+        20.0,
+        30.0
+      ],
+      "reload_time_reduction_pct": [
+        15.0,
+        30.0,
+        45.0
+      ]
+    },
+    "headshot_mult": 2
+  },
+  {
+    "name": "Venator",
+    "damage": 18.0,
+    "fire_rate": 3.51,
+    "mag_size": 10,
+    "reload_time_s": 3.55,
+    "tier_mods": {
+      "fire_rate_pct": [
+        22.0,
+        44.0,
+        66.0
+      ],
+      "reload_time_reduction_pct": [
+        16.67,
+        33.33,
+        50
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Renegade",
+    "damage": 35.0,
+    "fire_rate": 0.74,
+    "mag_size": 8,
+    "reload_time_s": 4.56,
+    "tier_mods": {
+      "fire_rate_pct": [
+        25.0,
+        50.0,
+        75.0
+      ]
+    },
+    "headshot_mult": 2.25
+  },
+  {
+    "name": "Osprey",
+    "damage": 45.0,
+    "fire_rate": 0.511,
+    "mag_size": 8,
+    "reload_time_s": 4.09,
+    "tier_mods": {
+      "fire_rate_pct": [
+        20.0,
+        40.0,
+        60.0
+      ],
+      "reload_time_reduction_pct": [
+        12.5,
+        25.0,
+        37.5
+      ]
+    },
+    "headshot_mult": 2
+  },
+  {
+    "name": "Il toro",
+    "damage": 67.5,
+    "fire_rate": 0.68,
+    "mag_size": 5,
+    "reload_time_s": 0.41625,
+    "reload_amount": 1,
+    "tier_mods": {
+      "fire_rate_pct": [
+        17.5,
+        35,
+        50.0
+      ],
+      "mag_add": [
+        1,
+        2,
+        3
+      ]
+    },
+    "headshot_mult": 1.0
+  },
+  {
+    "name": "Burletta",
+    "damage": 10.0,
+    "fire_rate": 6.88,
+    "mag_size": 12,
+    "reload_time_s": 3.0,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        16.67,
+        33.33,
+        50
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Arpeggio",
+    "damage": 9.5,
+    "fire_rate": 4.81,
+    "mag_size": 24,
+    "reload_time_s": 4.0,
+    "tier_mods": {
+      "fire_rate_pct": [
+        20.0,
+        40.0,
+        60.0
+      ],
+      "reload_time_reduction_pct": [
+        12.5,
+        25,
+        50
+      ]
+    },
+    "headshot_mult": 2.0
+  },
+  {
+    "name": "Anvil",
+    "damage": 40.0,
+    "fire_rate": 0.67,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "tier_mods": {
+      "fire_rate_pct": [
+        25.0,
+        50.0,
+        75.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Stitcher",
+    "damage": 7.0,
+    "fire_rate": 11.18,
+    "mag_size": 20,
+    "reload_time_s": 3.0,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Kettle",
+    "damage": 10.0,
+    "fire_rate": 7.76,
+    "mag_size": 20,
+    "reload_time_s": 5.0,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Hairpin",
+    "damage": 20.0,
+    "fire_rate": 0.9,
+    "mag_size": 8,
+    "reload_time_s": 3,
+    "tier_mods": {
+      "fire_rate_pct": [
+        10.0,
+        20.0,
+        30.0
+      ],
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Ferro",
+    "damage": 40.0,
+    "fire_rate": 0.5,
+    "mag_size": 1,
+    "reload_time_s": 2.83,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Rattler",
+    "damage": 9.0,
+    "fire_rate": 8.5,
+    "mag_size": 10,
+    "reload_time_s": 0.586,
+    "reload_amount": 2,
+    "tier_mods": {
+      "mag_add": [
+        4.0,
+        8.0,
+        12.0
+      ]
+    },
+    "headshot_mult": 2.0
+  }
+]

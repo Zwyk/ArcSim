@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Extended Shotgun Mag I (+2)",
+    "type": "mag",
+    "compatible": ["Il Toro", "Vulcano"],
+    "mag_add": 2
+  },
+  {
+    "name": "Extended Shotgun Mag II (+4)",
+    "type": "mag",
+    "compatible": ["Il Toro", "Vulcano"],
+    "mag_add": 4
+  },
+  {
+    "name": "Extended Medium Mag I (+4)",
+    "type": "mag",
+    "compatible": ["Arpeggio", "Osprey", "Renegade", "Torrente", "Venator", "Tempest"],
+    "mag_add": 4
+  },
+  {
+    "name": "Extended Light Mag I (+5)",
+    "type": "mag",
+    "compatible": ["Hairpin", "Kettle", "Stitcher", "Burletta", "Bobcat"],
+    "mag_add": 5
+  },
+  {
+    "name": "Extended Shotgun Mag III (+6)",
+    "type": "mag",
+    "compatible": ["Il Toro", "Vulcano"],
+    "mag_add": 6
+  },
+  {
+    "name": "Extended Medium Mag II (+8)",
+    "type": "mag",
+    "compatible": ["Arpeggio", "Osprey", "Renegade", "Torrente", "Venator", "Tempest"],
+    "mag_add": 8
+  },
+  {
+    "name": "Extended Light Mag II (+10)",
+    "type": "mag",
+    "compatible": ["Hairpin", "Kettle", "Stitcher", "Burletta", "Bobcat"],
+    "mag_add": 10
+  },
+  {
+    "name": "Extended Medium Mag III (+12)",
+    "type": "mag",
+    "compatible": ["Arpeggio", "Osprey", "Renegade", "Torrente", "Venator", "Tempest"],
+    "mag_add": 12
+  },
+  {
+    "name": "Extended Light Mag III (+15)",
+    "type": "mag",
+    "compatible": ["Hairpin", "Kettle", "Stitcher", "Burletta", "Bobcat"],
+    "mag_add": 15
+  },
+  {
+    "name": "Kinetic Converter",
+    "type": "stock",
+    "compatible": ["Ferro", "Kettle", "Rattler", "Stitcher", "Arpeggio", "Il Toro", "Osprey", "Renegade", "Torrente", "Bettina", "Bobcat", "Tempest", "Vulcano"],
+    "fire_rate_mult": 1.15
+  }
+]
