@@ -720,6 +720,36 @@ function render(){
     rows = rows.filter(r => (r.attachments === "none" || !r.attachments));
   }
 
+  // Always include Tier 1-only weapons, even if Tier 1 isn't selected
+  try{
+    const tiersByWeapon = new Map();
+    for (const r of rowsCompare){
+      const w = r.weapon;
+      if (!tiersByWeapon.has(w)) tiersByWeapon.set(w, new Set());
+      tiersByWeapon.get(w).add(Number(r.tier));
+    }
+    const tier1OnlyWeapons = new Set(
+      [...tiersByWeapon.entries()]
+        .filter(([_, s]) => s.size === 1 && s.has(1))
+        .map(([w,_]) => w)
+    );
+
+    if (tier1OnlyWeapons.size){
+      const haveTier1Selected = !selectedTiers || selectedTiers.includes(1);
+      if (!haveTier1Selected){
+        const haveWeaponInRows = new Set(rows.map(r => r.weapon));
+        for (const w of tier1OnlyWeapons){
+          if (haveWeaponInRows.has(w)) continue;
+          let add = rowsCompare.filter(r => r.weapon === w && Number(r.tier) === 1);
+          if (baseOnly){
+            add = add.filter(r => (r.attachments === "none" || !r.attachments));
+          }
+          if (add.length) rows.push(...add);
+        }
+      }
+    }
+  }catch{}
+
   const rowsFiltered = rows.slice();
 
   // Keep global metric select in sync
