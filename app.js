@@ -1133,7 +1133,7 @@ async function runCustomSim(){
     const body = clamp01(1 - head - limbs);
     const miss = clamp01((+$("missPct").value)/100);
 
-    const trials = Math.max(100, +$("trials").value || 1000);
+    const trials = Math.max(100, +$("trials").value || 5000);
     const seed = (+$("seed").value || 1337) >>> 0;
     const confidence = parseFloat($("confidence").value || "0.95");
 
