@@ -143,9 +143,9 @@
     "reload_time_s": 3.55,
     "tier_mods": {
       "fire_rate_pct": [
-        22.0,
-        44.0,
-        66.0
+        13.0,
+        26.0,
+        40.0
       ],
       "reload_time_reduction_pct": [
         16.67,
