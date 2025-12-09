@@ -1580,7 +1580,7 @@ function drawBestPerWeaponChart(rowsFiltered){
     .sort((a,b)=> (Number.isFinite(a.ttk_mean)?a.ttk_mean:metricTTK(a)) - (Number.isFinite(b.ttk_mean)?b.ttk_mean:metricTTK(b)));
 
   const items = bestRows.map(r => ({
-    label: `${r.weapon} ${tierRoman(r.tier)}`,
+    label: `${r.weapon} ${tierRoman(r.tier)}${(r.attachments && r.attachments !== "none") ? " (+)" : ""}`,
     mean: M.mean(r),
     sd:   M.sd(r),
     p50:  M.p50(r),
