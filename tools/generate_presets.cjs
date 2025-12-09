@@ -242,7 +242,6 @@ function shotsToKillWithSeq(stats, target, seq) {
 
     const dmg = stats.damage_per_bullet * mult;
 
-    // your rule
     if (sh > 0) {
       sh = Math.max(0, sh - dmg);     // full to shield
       hp -= dmg * (1 - dr);          // mitigated to HP

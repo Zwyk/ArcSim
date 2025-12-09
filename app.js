@@ -4,7 +4,6 @@ const PATH_PRESETS = "data/presets/";
 const FILE_WEAPONS = "data/weapons.json";
 const FILE_ATTACH = "data/attachments.json";
 
-// Rarity colors (edit freely to match your sheet)
 const RARITY = {
   Legendary: ["Jupiter","Equalizer","Anvil Splitter","Aphelion"],
   Epic: ["Bobcat","Tempest","Vulcano","Bettina"],
@@ -79,31 +78,6 @@ function ensureTargetTierOptions(rows){
   if (!targets.includes(preferred)) preferred = targets.includes("Light") ? "Light" : (targets[0] || null);
   setSelectOptions($("targetSelect"), targets, preferred);
   ensureTierCheckboxes(tiers);
-}
-
-function getSelectedTiers(){
-  const boxes = document.querySelectorAll("#tierChecks input[type=checkbox]");
-  const selected = [];
-  boxes.forEach(b => { if (b.checked) selected.push(+b.value); });
-  return selected.length ? selected : null; // null => means "all"
-}
-
-function buildTierCheckboxes(tiers){
-  const wrap = $("tierChecks");
-  const prev = new Set(getSelectedTiers() || tiers);
-
-  wrap.innerHTML = "";
-  for(const t of tiers){
-    const id = `tier_${t}`;
-    const label = document.createElement("label");
-    label.className = "tierPill";
-    label.innerHTML = `<input type="checkbox" id="${id}" value="${t}"> Tier ${t}`;
-    wrap.appendChild(label);
-
-    const cb = label.querySelector("input");
-    cb.checked = prev.has(t);
-    cb.addEventListener("change", render);
-  }
 }
 
 function getSelectedTiers(){
@@ -497,19 +471,7 @@ function fmtNum(x, decimals=2){
   return (Math.round(x * p) / p).toFixed(decimals);
 }
 
-function fmtIntOr2(x){
-  if (!Number.isFinite(x)) return "";
-  const nearInt = Math.abs(x - Math.round(x)) < 1e-9;
-  return nearInt ? String(Math.round(x)) : fmtNum(x, 2);
-}
-
-function fmtShotsMain(r){
-  const v = metricShots(r);
-  if (!Number.isFinite(v)) return "—";
-  const isMean = Number.isFinite(r.shots_mean) || Number.isFinite(r.bullets_to_kill_mean);
-  if (isMean) return (Math.round(v * 100) / 100).toFixed(2);
-  return String(Math.round(v));
-}
+// removed unused fmtIntOr2 and fmtShotsMain
 
 function bestPerWeapon(rows){
   const best = new Map();
@@ -582,8 +544,6 @@ function renderStatCell(main, unit, sd, ciHalf){
 }
 
 function attachmentRank(attName){
-  // Your order: Mag1 < Mag2 < Mag3 < Kinetic Converter
-  // We'll rank by "best cheap" (lower is cheaper)
   if(!attName || attName==="none") return 0;
   let r = 1000;
 
@@ -932,15 +892,7 @@ function render(){
   $("downloadBtn").disabled = !(currentRows && currentRows.length);
 }
 
-function fmt(x){
-      scheduleSave();
-  if(x === null || x === undefined) return "";
-  const n = Number(x);
-  if(!Number.isFinite(n)) return "";
-  if(Math.abs(n) >= 100) return n.toFixed(0);
-  if(Math.abs(n) >= 10) return n.toFixed(2);
-  return n.toFixed(3);
-}
+// removed unused fmt()
 function escapeHtml(s){
   return String(s ?? "")
     .replaceAll("&","&amp;")

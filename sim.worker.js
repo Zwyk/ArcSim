@@ -13,7 +13,6 @@ function mulberry32(a){
   };
 }
 
-// Targets (match your Python exports in ttk_results.json)
 const TARGETS = {
   "NoShield": { hp:100, shield:0,  dr:0.0 },
   "Light":    { hp:100, shield:40, dr:0.4 },
