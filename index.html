@@ -202,14 +202,16 @@
     <div class="modalBox">
       <div class="modalTitle">Information</div>
       <div class="modalBody">
-Simulations are done assuming each gun shoots 1 bullet at a time at steady rate.
-For guns that do shoot more than 1 bullet a time, we cumulate their damage and assume they all hit the same part.
-For guns that shoot in burst or need to charge, we assume an average firing rate.
+Simulations are done assuming each gun shoots 1 bullet at a time at steady rate. That means:
+  - For guns that do shoot more than 1 bullet a time (like shotguns), we cumulate their damage and assume they all hit the same part.
+  - For guns that shoot semi-automatically, we assume maximum firing rate.
+  - For guns that shoot in burst or need to charge, we assume an average firing rate.
+
 Aim/ADS time are not accounted for.
 
 Some weapons stats may be inaccurate. I'll update them according to the most reliable information I find.
 
-If you think the weapons stats are wrong or just want to mess around, you can edit them by pressing the button down there.
+If you think the weapons stats are wrong or just want to mess around, you can see and edit them by pressing the button down there.
 If you're SURE about some weapon stats that are wrong by default and want me to fix them, hit me on Discord: Zwyk
       </div>
       <div style="margin-top:12px; display:flex; justify-content:flex-end;">
