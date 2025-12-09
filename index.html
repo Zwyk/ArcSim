@@ -10,7 +10,10 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="title">ARC Raiders</div>
+        <div class="titleRow">
+          <div class="title">ARC Raiders</div>
+          <button id="infoBtn" class="ghost iconBtn" type="button" title="Information">i</button>
+        </div>
         <div class="subtitle">TTK Simulator</div>
       </div>
 
@@ -56,8 +59,8 @@
         <div class="hint" id="bodyLabel">Body: 70%, Head: 10%, Limbs: 20%</div>
 
         <label class="label">Miss %</label>
-        <input id="missPct" type="range" min="0" max="95" value="10" />
-        <div class="hint" id="missLabel">Miss: 10%</div>
+        <input id="missPct" type="range" min="0" max="95" value="5" />
+        <div class="hint" id="missLabel">Miss: 5%</div>
 
         <div class="row2">
           <div>
@@ -78,6 +81,10 @@
         </select>
 
         <button id="runBtn">Start simulation</button>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+          <button id="editWeaponsBtn" class="ghost" type="button">Edit weapons.json</button>
+          <span id="weaponsOverrideCue" class="hint" style="display:none;">Override active</span>
+        </div>
         <div class="hint" id="status"></div>
 
         <button id="downloadBtn" class="ghost" disabled>Download current rows (.json)</button>
@@ -187,6 +194,59 @@
       <div class="modalTitle">Variants</div>
       <div id="modalBody" class="modalBody"></div>
       <button id="modalClose" class="ghost">Close</button>
+    </div>
+  </div>
+
+  <!-- Info modal -->
+  <div id="infoModal" class="modal hidden" style="display:none;">
+    <div class="modalBox">
+      <div class="modalTitle">Information</div>
+      <div class="modalBody">
+Simulations are done assuming each gun shoots 1 bullet at a time at steady rate.
+For guns that do shoot more than 1 bullet a time, we cumulate their damage and assume they all hit the same part.
+For guns that shoot in burst or need to charge, we assume an average firing rate.
+Aim/ADS time are not accounted for.
+
+Some weapons stats may be inaccurate. I'll update them according to the most reliable information I find.
+
+If you think the weapons stats are wrong or just want to mess around, you can edit them by pressing the button down there.
+If you're SURE about some weapon stats that are wrong by default and want me to fix them, hit me on Discord: Zwyk
+      </div>
+      <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+        <button id="closeInfoModal" class="ghost" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weapons editor modal -->
+  <div id="weaponsModal" class="modal hidden" style="display:none;">
+    <div class="modalBox" style="max-width: 980px; width: 96%; padding: 18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <div style="font-size:16px; font-weight:650;">Custom weapons.json (session only)</div>
+          <div style="font-size:12px; opacity:.75;">Used only for custom simulations. Refreshing the page resets unless you export/import.</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button id="validateWeaponsBtn" class="btn secondary" type="button">Validate</button>
+          <button id="saveWeaponsBtn" class="btn" type="button">Save override</button>
+          <button id="closeWeaponsModal" class="btn secondary" type="button">Close</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button id="loadWeaponsDefault" class="btn secondary" type="button">Load from data/weapons.json</button>
+        <button id="resetWeaponsOverride" class="btn secondary" type="button">Reset override</button>
+        <button id="downloadWeaponsOverride" class="btn secondary" type="button">Download JSON</button>
+        <input id="importWeaponsOverride" type="file" accept="application/json" style="display:none;">
+        <button id="importWeaponsBtn" class="btn secondary" type="button">Import JSON…</button>
+        <div id="weaponsModalStatus" style="font-size:12px; opacity:.8; margin-left:auto;"></div>
+      </div>
+
+      <textarea id="weaponsEditor"
+        spellcheck="false"
+        style="margin-top:12px; width:100%; height:60vh; resize:vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; line-height:1.4; background:rgba(0,0,0,.25); color:inherit; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px;"></textarea>
+
+      
     </div>
   </div>
 

@@ -36,6 +36,7 @@ body{
 }
 
 .brand .title{ font-weight:800; font-size:20px; }
+.brand .titleRow{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .brand .subtitle{ color:var(--muted); font-size:12px; margin-top:4px; }
 
 .panel{
@@ -98,6 +99,14 @@ button.ghost{
   border:1px solid var(--border);
   background: transparent;
   font-weight:600;
+}
+
+/* Small icon button for inline usage */
+.iconBtn{
+  width:auto;
+  margin-top:0;
+  padding:6px 10px;
+  line-height:1;
 }
 
 .row2{
@@ -232,7 +241,7 @@ tbody td{
 .modal{
   position:fixed;
   inset:0;
-  background: rgba(0,0,0,.6);
+  background: transparent;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -245,7 +254,7 @@ tbody td{
   width:min(720px, 96vw);
   max-height:80vh;
   overflow:auto;
-  background: rgba(16,24,36,.95);
+  background: var(--panel);
   border:1px solid var(--border);
   border-radius:16px;
   padding:14px;

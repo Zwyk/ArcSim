@@ -213,7 +213,9 @@ function customTitleParts(p){
   const trials = p.trials ? `${p.trials} trials` : null;
   const cl = (p.confidence != null) ? `${Math.round(p.confidence * 100)}% CI` : null;
 
-  const meta = [missLabel, trials, cl].filter(Boolean).join(" · ");
+  const usingOverride = !!getWeaponsOverride();
+  const overrideNote = usingOverride ? "weapons override" : null;
+  const meta = [missLabel, trials, cl, overrideNote].filter(Boolean).join(" · ");
   return { name, meta };
 }
 
@@ -278,6 +280,84 @@ function simCacheSet(key, rows){
     const firstKey = SIM_CACHE.keys().next().value;
     SIM_CACHE.delete(firstKey);
   }
+}
+
+// Custom weapons override (session only)
+const WEAPONS_OVERRIDE_KEY = "arc_sim_weapons_override_v1";
+function getWeaponsOverride(){
+  try{
+    const raw = sessionStorage.getItem(WEAPONS_OVERRIDE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch{
+    return null;
+  }
+}
+function setWeaponsOverride(obj){
+  sessionStorage.setItem(WEAPONS_OVERRIDE_KEY, JSON.stringify(obj));
+}
+function clearWeaponsOverride(){
+  sessionStorage.removeItem(WEAPONS_OVERRIDE_KEY);
+}
+function validateWeaponsJson(arr){
+  if(!Array.isArray(arr)) return "Root must be an array of weapons";
+  for (let i=0;i<arr.length;i++){
+    const w = arr[i];
+    if(!w || typeof w !== "object") return `Weapon[${i}] must be an object`;
+    if(typeof w.name !== "string" || !w.name.trim()) return `Weapon[${i}].name missing`;
+    for (const k of ["damage","fire_rate","mag_size","reload_time_s"]){
+      if(!(k in w)) return `Weapon[${i}] missing '${k}'`;
+      if(!Number.isFinite(Number(w[k]))) return `Weapon[${i}].${k} must be a number`;
+    }
+    if("reload_amount" in w && !Number.isFinite(Number(w.reload_amount))) return `Weapon[${i}].reload_amount must be a number`;
+    if("headshot_mult" in w && !Number.isFinite(Number(w.headshot_mult))) return `Weapon[${i}].headshot_mult must be a number`;
+    if("limbs_mult" in w && !Number.isFinite(Number(w.limbs_mult))) return `Weapon[${i}].limbs_mult must be a number`;
+    if(w.tier_mods && typeof w.tier_mods !== "object") return `Weapon[${i}].tier_mods must be an object`;
+  }
+  return null;
+}
+
+// Default weapons cache to avoid repeated fetches
+let __defaultWeaponsPromise = null;
+function getDefaultWeaponsCached(){
+  if (!__defaultWeaponsPromise){
+    __defaultWeaponsPromise = fetchJSON(FILE_WEAPONS).catch(e => { __defaultWeaponsPromise = null; throw e; });
+  }
+  return __defaultWeaponsPromise;
+}
+
+function normalizeObject(obj){
+  if (obj === null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(normalizeObject);
+  const out = {};
+  Object.keys(obj).sort().forEach(k => { out[k] = normalizeObject(obj[k]); });
+  return out;
+}
+function canonicalizeWeapons(arr){
+  if (!Array.isArray(arr)) return [];
+  const mapped = arr.map(w => normalizeObject(w));
+  mapped.sort((a,b)=> String(a?.name || "").toLowerCase().localeCompare(String(b?.name || "").toLowerCase()));
+  return mapped;
+}
+async function overrideIsDifferentFromDefault(){
+  const ov = getWeaponsOverride();
+  if (!ov) return false;
+  try{
+    const def = await getDefaultWeaponsCached();
+    const a = JSON.stringify(canonicalizeWeapons(ov));
+    const b = JSON.stringify(canonicalizeWeapons(def));
+    return a !== b;
+  }catch{
+    // On fetch failure, be conservative: show active if override exists
+    return true;
+  }
+}
+async function updateWeaponsOverrideCue(){
+  const cue = $("weaponsOverrideCue");
+  if (!cue) return;
+  const active = await overrideIsDifferentFromDefault();
+  cue.style.display = active ? "" : "none";
+  cue.title = active ? "Custom weapons override differs from default" : "";
 }
 
 function loadUIState(){
@@ -1060,6 +1140,20 @@ async function init(){
   // done restoring; now we allow saving
   isRestoring = false;
   saveUIState(collectUIState());
+
+  // init weapons editor modal
+  initWeaponsEditor();
+  updateWeaponsOverrideCue();
+
+  // Info modal wiring
+  const infoBtn = $("infoBtn");
+  const infoModal = $("infoModal");
+  const closeInfo = $("closeInfoModal");
+  function openInfo(){ if(infoModal){ infoModal.style.display = "flex"; infoModal.classList.remove("hidden"); } }
+  function closeInfoModal(){ if(infoModal){ infoModal.style.display = "none"; infoModal.classList.add("hidden"); } }
+  infoBtn?.addEventListener("click", openInfo);
+  closeInfo?.addEventListener("click", closeInfoModal);
+  infoModal?.addEventListener("click", (e) => { if(e.target === infoModal) closeInfoModal(); });
 }
 
 function cacheKey(params){
@@ -1102,7 +1196,8 @@ async function runCustomSim(){
     }
 
     setStatus("Loading weapon data…");
-    const [weapons, attachments] = await Promise.all([fetchJSON(FILE_WEAPONS), fetchJSON(FILE_ATTACH)]);
+    const [weaponsDefault, attachments] = await Promise.all([fetchJSON(FILE_WEAPONS), fetchJSON(FILE_ATTACH)]);
+    const weapons = getWeaponsOverride() || weaponsDefault;
 
     setStatus("Simulating…");
     pendingSimCacheKey = key;
@@ -1115,6 +1210,100 @@ async function runCustomSim(){
 }
 
 init();
+
+function initWeaponsEditor(){
+  const modal = $("weaponsModal");
+  const openBtn = $("editWeaponsBtn");
+  const closeBtn = $("closeWeaponsModal");
+  const editor = $("weaponsEditor");
+  const status = $("weaponsModalStatus");
+
+  if(!modal || !openBtn || openBtn._bound) return;
+  openBtn._bound = true;
+
+  function showStatus(t){ if(status) status.textContent = t || ""; }
+  function open(){ modal.style.display = "flex"; modal.classList.remove("hidden"); }
+  function close(){ modal.style.display = "none"; modal.classList.add("hidden"); }
+
+  openBtn.addEventListener("click", async () => {
+    open();
+    const ov = getWeaponsOverride();
+    if(ov){
+      editor.value = JSON.stringify(ov, null, 2);
+      showStatus("Loaded override from session.");
+    }else{
+      const def = await fetchJSON(FILE_WEAPONS);
+      editor.value = JSON.stringify(def, null, 2);
+      showStatus("Loaded data/weapons.json.");
+    }
+  });
+
+  if (closeBtn) closeBtn.addEventListener("click", close);
+  if (modal) modal.addEventListener("click", (e) => { if(e.target === modal) close(); });
+
+  $("loadWeaponsDefault")?.addEventListener("click", async () => {
+    const def = await fetchJSON(FILE_WEAPONS);
+    editor.value = JSON.stringify(def, null, 2);
+    showStatus("Loaded data/weapons.json.");
+  });
+
+  $("resetWeaponsOverride")?.addEventListener("click", () => {
+    clearWeaponsOverride();
+    showStatus("Override cleared (will use default weapons.json).");
+    updateWeaponsOverrideCue();
+  });
+
+  $("validateWeaponsBtn")?.addEventListener("click", () => {
+    try{
+      const parsed = JSON.parse(editor.value);
+      const err = validateWeaponsJson(parsed);
+      if(err) { showStatus("Invalid: " + err); return; }
+      showStatus("Valid ✔");
+    }catch(e){
+      showStatus("Invalid JSON: " + e.message);
+    }
+  });
+
+  $("saveWeaponsBtn")?.addEventListener("click", () => {
+    try{
+      const parsed = JSON.parse(editor.value);
+      const err = validateWeaponsJson(parsed);
+      if(err) { showStatus("Invalid: " + err); return; }
+      setWeaponsOverride(parsed);
+      showStatus("Saved override ✔ (applies to custom simulations).");
+      updateWeaponsOverrideCue();
+    }catch(e){
+      showStatus("Invalid JSON: " + e.message);
+    }
+  });
+
+  $("downloadWeaponsOverride")?.addEventListener("click", () => {
+    try{
+      const parsed = JSON.parse(editor.value);
+      const blob = new Blob([JSON.stringify(parsed, null, 2)], { type:"application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "weapons.override.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+      showStatus("Downloaded.");
+    }catch(e){
+      showStatus("Invalid JSON: " + e.message);
+    }
+  });
+
+  $("importWeaponsBtn")?.addEventListener("click", () => $("importWeaponsOverride").click());
+  $("importWeaponsOverride")?.addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const txt = await file.text();
+    editor.value = txt;
+    showStatus("Imported into editor (not saved yet).");
+    e.target.value = "";
+  });
+}
 
 // Helper: manage presence of Custom (simulated) option
 function ensureCustomPresetOption(){
