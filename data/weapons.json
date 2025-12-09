@@ -1,5 +1,51 @@
 [
   {
+    "name": "Aphelion",
+    "damage": 50.0,
+    "fire_rate": 1,
+    "mag_size": 5,
+    "reload_time_s": 2,
+    "tier_mods": {
+    },
+    "headshot_mult": 2
+  },
+  {
+    "name": "Anvil Splitter",
+    "damage": 48.0,
+    "fire_rate": 0.67,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "tier_mods": {
+      "fire_rate_pct": [
+        25.0,
+        50.0,
+        75.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Equalizer",
+    "damage": 8.0,
+    "fire_rate": 6.5,
+    "mag_size": 50,
+    "reload_time_s": 3,
+    "tier_mods": {
+    },
+    "headshot_mult": 2
+  },
+  {
+    "name": "Jupiter",
+    "damage": 60.0,
+    "fire_rate": 0.8,
+    "mag_size": 5,
+    "reload_time_s": 2.5,
+    "tier_mods": {
+    },
+    "headshot_mult": 2
+  },
+  {
     "name": "Bobcat",
     "damage": 6.0,
     "fire_rate": 17.15,

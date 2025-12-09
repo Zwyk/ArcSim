@@ -5,6 +5,7 @@
     "file": "preset_body_only.json",
     "kind": "precomputed",
     "mode": "det",
+    "miss": null,
     "n_trials": null,
     "ci_level": null
   },
@@ -14,25 +15,38 @@
     "file": "preset_head_only.json",
     "kind": "precomputed",
     "mode": "det",
+    "miss": null,
     "n_trials": null,
     "ci_level": null
   },
   {
     "id": "preset_typical",
-    "name": "Typical 70/10/20 (precomputed, 5000 trials, 95% CI)",
+    "name": "Typical 70/10/20/5 (precomputed)",
     "file": "preset_typical.json",
     "kind": "precomputed",
     "mode": "mc",
-    "n_trials": 5000,
+    "miss": 0.05,
+    "n_trials": 20000,
     "ci_level": 0.95
   },
   {
     "id": "preset_good_aim",
-    "name": "Good Aim 40/50/10 (precomputed, 5000 trials, 95% CI)",
+    "name": "Good Aim 45/50/5/0 (precomputed)",
     "file": "preset_good_aim.json",
     "kind": "precomputed",
     "mode": "mc",
-    "n_trials": 5000,
+    "miss": 0,
+    "n_trials": 20000,
+    "ci_level": 0.95
+  },
+  {
+    "id": "preset_bad_aim",
+    "name": "Bad Aim 55/5/40/20 (precomputed)",
+    "file": "preset_bad_aim.json",
+    "kind": "precomputed",
+    "mode": "mc",
+    "miss": 0.2,
+    "n_trials": 20000,
     "ci_level": 0.95
   }
 ]

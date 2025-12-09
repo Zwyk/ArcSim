@@ -15,7 +15,7 @@ const TARGETS = [
 
 // --------- helpers ---------
 function parseArgs(argv){
-  const out = { trials: 2000, confidence: 0.95, seed: 1337 };
+  const out = { trials: 20000, confidence: 0.95, seed: 1337 };
   for (let i = 2; i < argv.length; i++){
     const a = argv[i];
     const [k, vRaw] = a.includes("=") ? a.split("=", 2) : [a, argv[i+1]];
@@ -30,6 +30,8 @@ function parseArgs(argv){
 
 const OPT = parseArgs(process.argv);
 console.log("Preset generation options:", OPT);
+const PRECOMP_TRIALS = 20000;
+const PRECOMP_CI = OPT.confidence ?? 0.95;
 function zForCL(cl){
   if (cl >= 0.99) return 2.575829;
   if (cl >= 0.95) return 1.959964;
@@ -40,10 +42,11 @@ function zForCL(cl){
 function mean(arr){ let s=0; for(const x of arr) s+=x; return s/arr.length; }
 
 function stddev(arr, m){
-  if(arr.length < 2) return 0;
+  // population stddev for consistency with worker/UI
+  if(arr.length === 0) return 0;
   let s2=0;
   for(const x of arr){ const d=x-m; s2 += d*d; }
-  return Math.sqrt(s2/(arr.length-1));
+  return Math.sqrt(s2/arr.length);
 }
 
 function quantileCI(sorted, q, z){
@@ -58,6 +61,10 @@ function quantileCI(sorted, q, z){
   if(kHigh < kLow){ const t=kLow; kLow=kHigh; kHigh=t; }
   return [sorted[kLow], sorted[kHigh]];
 }
+function meanCIFromSd(mu, sd, n, z){
+  const se = sd / Math.sqrt(n);
+  return [mu - z * se, mu + z * se];
+}
 function mulberry32(a){
   return function(){
     a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -67,7 +74,7 @@ function mulberry32(a){
   };
 }
 
-function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, rng){
+function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, miss, rng){
   let hp = target.hp;
   let sh = target.shield;
   const dr = target.dr;
@@ -75,6 +82,12 @@ function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, rng){
   let shots = 0;
   while(hp >= 1.0){
     shots++;
+    // miss check
+    const rMiss = rng();
+    if (rMiss < (Number(miss) || 0)) {
+      if(shots > 200000) return Infinity;
+      continue; // missed shot: no damage applied
+    }
 
     // pick zone
     const r = rng();
@@ -284,7 +297,7 @@ function ttkFromShots(shotsNeeded, stats) {
   return { ttk: t, reloads };
 }
 
-function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, rng){
+function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, miss, rng){
   let hp = target.hp;
   let sh = target.shield;
   const dr = target.dr;
@@ -292,6 +305,13 @@ function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, rng){
   let shots = 0;
   while(hp >= 1.0){
     shots++;
+
+    // miss check
+    const rMiss = rng();
+    if (rMiss < (Number(miss) || 0)) {
+      if(shots > 200000) return Infinity;
+      continue; // missed shot: no damage applied
+    }
 
     const r = rng();
     let mult = 1.0;
@@ -313,7 +333,7 @@ function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, rng){
   return shots;
 }
 
-function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase) {
+function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0) {
   const sum = w.body + w.head + w.limbs;
   const pBody = w.body / sum;
   const pHead = w.head / sum;
@@ -332,8 +352,8 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase) {
       mag_size: wpn.mag_size,
       reload_time_s: wpn.reload_time_s,
       reload_amount: wpn.reload_amount ?? 0,
-      headshot_mult: (wpn.headshot_mult == null || wpn.headshot_mult <= 1.0) ? 2.0 : wpn.headshot_mult,
-      limbs_mult: (wpn.limbs_mult == null || wpn.limbs_mult === 1.0) ? 0.9 : wpn.limbs_mult,
+      headshot_mult: (wpn.headshot_mult == null || wpn.headshot_mult <= 0) ? 2.0 : wpn.headshot_mult,
+      limbs_mult: (wpn.limbs_mult == null || wpn.limbs_mult <= 0) ? 0.9 : wpn.limbs_mult,
       attachments: "none",
     };
 
@@ -352,27 +372,65 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase) {
           const rng = mulberry32((seedBase + rowIndex * 1013904223) >>> 0);
           const ttks = [];
           const shotsArr = [];
+          const reloadsArr = [];
+          const reloadTimeArr = [];
+          const fireTimeArr = [];
           let reloadsSum = 0;
 
           for(let k=0;k<trials;k++){
-            const shots = shotsToKillTrial(stats, tgt, pBody, pHead, pLimbs, rng);
+            const shots = shotsToKillTrial(stats, tgt, pBody, pHead, pLimbs, miss, rng);
             const sim = ttkFromShots(shots, stats);
-            ttks.push(sim.ttk);
+            const ttkVal = sim.ttk;
+            const rels = sim.reloads;
+            const rTime = rels * stats.reload_time_s;
+            const fTime = ttkVal - rTime;
+            ttks.push(ttkVal);
             shotsArr.push(shots);
-            reloadsSum += sim.reloads;
+            reloadsArr.push(rels);
+            reloadTimeArr.push(rTime);
+            fireTimeArr.push(fTime);
+            reloadsSum += rels;
           }
 
           ttks.sort((a,b)=>a-b);
           shotsArr.sort((a,b)=>a-b);
+          reloadsArr.sort((a,b)=>a-b);
+          reloadTimeArr.sort((a,b)=>a-b);
+          fireTimeArr.sort((a,b)=>a-b);
 
+          const n = ttks.length;
           const ttk_mean = mean(ttks);
           const sd = stddev(ttks, ttk_mean);
-          const se = sd / Math.sqrt(ttks.length);
+          const [ttk_mean_ci_low, ttk_mean_ci_high] = meanCIFromSd(ttk_mean, sd, n, z);
 
           const ttk_p50 = percentile(ttks, 0.50);
           const [ttk_p50_ci_low, ttk_p50_ci_high] = quantileCI(ttks, 0.50, z);
 
-          rows.push({
+          const shots_mean = mean(shotsArr);
+          const shots_sd = stddev(shotsArr, shots_mean);
+          const [shots_mean_ci_low, shots_mean_ci_high] = meanCIFromSd(shots_mean, shots_sd, n, z);
+          const shots_p50 = percentile(shotsArr, 0.50);
+          const [shots_p50_ci_low, shots_p50_ci_high] = quantileCI(shotsArr, 0.50, z);
+
+          const reloads_mean = mean(reloadsArr);
+          const reloads_sd = stddev(reloadsArr, reloads_mean);
+          const [reloads_mean_ci_low, reloads_mean_ci_high] = meanCIFromSd(reloads_mean, reloads_sd, n, z);
+          const reloads_p50 = percentile(reloadsArr, 0.50);
+          const [reloads_p50_ci_low, reloads_p50_ci_high] = quantileCI(reloadsArr, 0.50, z);
+
+          const reload_time_mean = mean(reloadTimeArr);
+          const reload_time_sd = stddev(reloadTimeArr, reload_time_mean);
+          const [reload_time_mean_ci_low, reload_time_mean_ci_high] = meanCIFromSd(reload_time_mean, reload_time_sd, n, z);
+          const reload_time_p50 = percentile(reloadTimeArr, 0.50);
+          const [reload_time_p50_ci_low, reload_time_p50_ci_high] = quantileCI(reloadTimeArr, 0.50, z);
+
+          const fire_time_mean = mean(fireTimeArr);
+          const fire_time_sd = stddev(fireTimeArr, fire_time_mean);
+          const [fire_time_mean_ci_low, fire_time_mean_ci_high] = meanCIFromSd(fire_time_mean, fire_time_sd, n, z);
+          const fire_time_p50 = percentile(fireTimeArr, 0.50);
+          const [fire_time_p50_ci_low, fire_time_p50_ci_high] = quantileCI(fireTimeArr, 0.50, z);
+
+          const row = {
             weapon: stats.weapon,
             tier,
             attachments: stats.attachments,
@@ -391,12 +449,50 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase) {
             ttk_p50_ci_high,
 
             ttk_mean,
-            ttk_mean_ci_low: ttk_mean - z*se,
-            ttk_mean_ci_high: ttk_mean + z*se,
+            ttk_mean_ci_low,
+            ttk_mean_ci_high,
+            ttk_std: sd,
+            ttk_std_pct: (ttk_mean > 0 ? (sd / ttk_mean) : null),
+            n_trials: trials,
 
-            shots_p50: percentile(shotsArr, 0.50),
-            shots_mean: mean(shotsArr),
-            reloads_mean: reloadsSum / trials,
+            // per-metric stats (mean/std/mean-CI) for shots, reloads, reload time, fire time
+            shots_mean,
+            shots_mean_ci_low,
+            shots_mean_ci_high,
+            shots_std: shots_sd,
+            shots_std_pct: (shots_mean > 0 ? (shots_sd / shots_mean) : null),
+            shots_p50,
+            shots_p50_ci_low,
+            shots_p50_ci_high,
+
+            reloads_mean,
+            reloads_mean_ci_low,
+            reloads_mean_ci_high,
+            reloads_std: reloads_sd,
+            reloads_std_pct: (reloads_mean > 0 ? (reloads_sd / reloads_mean) : null),
+            reloads_p50,
+            reloads_p50_ci_low,
+            reloads_p50_ci_high,
+
+            reload_time_mean,
+            reload_time_mean_ci_low,
+            reload_time_mean_ci_high,
+            reload_time_std: reload_time_sd,
+            reload_time_std_pct: (reload_time_mean > 0 ? (reload_time_sd / reload_time_mean) : null),
+            reload_time_p50,
+            reload_time_p50_ci_low,
+            reload_time_p50_ci_high,
+
+            fire_time_mean,
+            fire_time_mean_ci_low,
+            fire_time_mean_ci_high,
+            fire_time_std: fire_time_sd,
+            fire_time_std_pct: (fire_time_mean > 0 ? (fire_time_sd / fire_time_mean) : null),
+            fire_time_p50,
+            fire_time_p50_ci_low,
+            fire_time_p50_ci_high,
+
+            
 
             damage_per_bullet: stats.damage_per_bullet,
             fire_rate_bps: stats.fire_rate_bps,
@@ -405,7 +501,12 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase) {
             reload_amount: stats.reload_amount,
             headshot_mult: stats.headshot_mult,
             limbs_mult: stats.limbs_mult,
-          });
+          };
+
+          row.miss = miss;
+          row.n_trials = trials;
+          row.ci_level = ciLevel;
+          rows.push(row);
 
           rowIndex++;
         }
@@ -430,8 +531,8 @@ function runPresetDeterministic(profileName, w){
       mag_size: wpn.mag_size,
       reload_time_s: wpn.reload_time_s,
       reload_amount: wpn.reload_amount ?? 0,
-      headshot_mult: (wpn.headshot_mult == null || wpn.headshot_mult <= 1.0) ? 2.0 : wpn.headshot_mult,
-      limbs_mult: (wpn.limbs_mult == null || wpn.limbs_mult === 1.0) ? 0.9 : wpn.limbs_mult,
+      headshot_mult: (wpn.headshot_mult == null || wpn.headshot_mult <= 0) ? 2.0 : wpn.headshot_mult,
+      limbs_mult: (wpn.limbs_mult == null || wpn.limbs_mult <= 0) ? 0.9 : wpn.limbs_mult,
       attachments: "none",
     };
 
@@ -484,8 +585,45 @@ function writeJSON(rel, obj) {
 const presets = [
   { id:"preset_body_only", name:"Body only (precomputed)", file:"preset_body_only.json", mode:"det", profile:"Body only", w:{body:1, head:0, limbs:0} },
   { id:"preset_head_only", name:"Head only (precomputed)", file:"preset_head_only.json", mode:"det", profile:"Head only", w:{body:0, head:1, limbs:0} },
-  { id:"preset_typical", name:`Typical 70/10/20 (precomputed, ${OPT.trials} trials, ${Math.round(OPT.confidence*100)}% CI)`, file:"preset_typical.json", mode:"mc", profile:"Typical", w:{body:0.7, head:0.1, limbs:0.2}, trials: OPT.trials, ci: OPT.confidence, seed: OPT.seed },
-  { id:"preset_good_aim", name:`Good Aim 40/50/10 (precomputed, ${OPT.trials} trials, ${Math.round(OPT.confidence*100)}% CI)`, file:"preset_good_aim.json", mode:"mc", profile:"Good AAim", w:{body:0.4, head:0.5, limbs:0.1}, trials: OPT.trials, ci: OPT.confidence, seed: OPT.seed },
+
+  {
+    id: "preset_typical",
+    name: "Typical 70/10/20/5 (precomputed)",
+    file: "preset_typical.json",
+    mode: "mc",
+    profile: "Typical",
+    w: { body: 0.70, head: 0.10, limbs: 0.20 },
+    miss: 0.05,
+    trials: PRECOMP_TRIALS,
+    ci: PRECOMP_CI,
+    seed: OPT.seed
+  },
+
+  {
+    id: "preset_good_aim",
+    name: "Good Aim 45/50/5/0 (precomputed)",
+    file: "preset_good_aim.json",
+    mode: "mc",
+    profile: "Good Aim",
+    w: { body: 0.45, head: 0.50, limbs: 0.05 },
+    miss: 0.00,
+    trials: PRECOMP_TRIALS,
+    ci: PRECOMP_CI,
+    seed: OPT.seed
+  },
+
+  {
+    id: "preset_bad_aim",
+    name: "Bad Aim 55/5/40/20 (precomputed)",
+    file: "preset_bad_aim.json",
+    mode: "mc",
+    profile: "Bad Aim",
+    w: { body: 0.55, head: 0.05, limbs: 0.40 },
+    miss: 0.20,
+    trials: PRECOMP_TRIALS,
+    ci: PRECOMP_CI,
+    seed: OPT.seed
+  },
 ];
 
 writeJSON("data/presets/presets.json", presets.map(p => ({
@@ -494,6 +632,7 @@ writeJSON("data/presets/presets.json", presets.map(p => ({
   file: p.file,
   kind: "precomputed",
   mode: p.mode,
+  miss: p.mode === "mc" ? p.miss : null,
   n_trials: p.mode === "mc" ? p.trials : null,
   ci_level: p.mode === "mc" ? p.ci : null,
 })));
@@ -503,7 +642,7 @@ let typicalRows = null;
 
 for (const p of presets) {
   const rows = p.mode === "mc"
-    ? runPresetMonteCarlo(p.profile, p.w, p.trials, p.ci, p.seed)
+    ? runPresetMonteCarlo(p.profile, p.w, p.trials, p.ci, p.seed, p.miss)
     : runPresetDeterministic(p.profile, p.w);
   writeJSON(path.join("data/presets", p.file), rows);
 

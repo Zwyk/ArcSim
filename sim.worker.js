@@ -214,6 +214,21 @@ function zForCL(cl){
   return 1.959964;
 }
 
+// UI CI helpers (fallback)
+function zForCI(ciLevel){
+  const cl = Number(ciLevel);
+  if (cl >= 0.99) return 2.575829;
+  if (cl >= 0.95) return 1.959964;
+  if (cl >= 0.90) return 1.644854;
+  if (cl >= 0.80) return 1.281552;
+  return 1.959964;
+}
+function ciHalfFallback(sd, nTrials, ciLevel){
+  const sdN = Number(sd), n = Number(nTrials);
+  if (!Number.isFinite(sdN) || !Number.isFinite(n) || n <= 1) return NaN;
+  return zForCI(ciLevel) * sdN / Math.sqrt(n);
+}
+
 function mean(arr){
   let s = 0;
   for(const x of arr) s += x;
@@ -221,13 +236,13 @@ function mean(arr){
 }
 
 function stddev(arr, m){
-  if(arr.length < 2) return 0;
+  // population stddev for consistency with UI request
   let s2 = 0;
   for(const x of arr){
     const d = x - m;
     s2 += d * d;
   }
-  return Math.sqrt(s2 / (arr.length - 1));
+  return Math.sqrt(s2 / arr.length);
 }
 
 function quantileCI(sorted, q, z){
@@ -302,20 +317,33 @@ self.onmessage = (ev) => {
 
       const ttks = new Array(trials);
       const shotsArr = new Array(trials);
+      const reloadsArr = new Array(trials);
+      const reloadTimeArr = new Array(trials);
+      const fireTimeArr = new Array(trials);
       let shotsSum = 0;
       let reloadsSum = 0;
 
       for(let k=0;k<trials;k++){
         const shots = shotsToKillTrial(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, rng);
         const tr = ttkAndReloadsFromShots(shots, cfg.stats);
-        ttks[k] = tr.ttk;
+        const ttkVal = tr.ttk;
+        const rels = tr.reloads;
+        const rTime = rels * cfg.stats.reload_time_s;
+        const fTime = ttkVal - rTime;
+        ttks[k] = ttkVal;
         shotsArr[k] = shots;
+        reloadsArr[k] = rels;
+        reloadTimeArr[k] = rTime;
+        fireTimeArr[k] = fTime;
         shotsSum += shots;
-        reloadsSum += tr.reloads;
+        reloadsSum += rels;
       }
 
       ttks.sort((a,b)=>a-b);
       shotsArr.sort((a,b)=>a-b);
+      reloadsArr.sort((a,b)=>a-b);
+      reloadTimeArr.sort((a,b)=>a-b);
+      fireTimeArr.sort((a,b)=>a-b);
       const cl = confidence ?? 0.95;
       const z = zForCL(cl);
 
@@ -331,6 +359,34 @@ self.onmessage = (ev) => {
       const [ttk_p95_ci_low, ttk_p95_ci_high] = quantileCI(ttks, 0.95, z);
       const ttk_ci_half = (ttk_p50_ci_high - ttk_p50_ci_low) / 2;
       const ttk_ci_rel = ttk_p50 ? (ttk_ci_half / ttk_p50) : NaN;
+
+      const sShots_mean = shotsSum / trials;
+      const sShots_std = stddev(shotsArr, sShots_mean);
+      const sShots_half = ciHalfFallback(sShots_std, trials, cl);
+
+      const sRel_mean = reloadsSum / trials;
+      const sRel_std = stddev(reloadsArr, sRel_mean);
+      const sRel_half = ciHalfFallback(sRel_std, trials, cl);
+
+      const sRTime_mean = mean(reloadTimeArr);
+      const sRTime_std = stddev(reloadTimeArr, sRTime_mean);
+      const sRTime_half = ciHalfFallback(sRTime_std, trials, cl);
+
+      const sFire_mean = mean(fireTimeArr);
+      const sFire_std = stddev(fireTimeArr, sFire_mean);
+      const sFire_half = ciHalfFallback(sFire_std, trials, cl);
+
+      const shots_p50 = percentile(shotsArr, 0.50);
+      const [shots_p50_ci_low, shots_p50_ci_high] = quantileCI(shotsArr, 0.50, z);
+
+      const reloads_p50 = percentile(reloadsArr, 0.50);
+      const [reloads_p50_ci_low, reloads_p50_ci_high] = quantileCI(reloadsArr, 0.50, z);
+
+      const reload_time_p50 = percentile(reloadTimeArr, 0.50);
+      const [reload_time_p50_ci_low, reload_time_p50_ci_high] = quantileCI(reloadTimeArr, 0.50, z);
+
+      const fire_time_p50 = percentile(fireTimeArr, 0.50);
+      const [fire_time_p50_ci_low, fire_time_p50_ci_high] = quantileCI(fireTimeArr, 0.50, z);
 
       rows.push({
         weapon: cfg.weapon,
@@ -352,6 +408,9 @@ self.onmessage = (ev) => {
         ttk_p50_ci_low,
         ttk_p50_ci_high,
 
+        ttk_std: ttk_sd,
+        ttk_std_pct: (ttk_mean > 0 ? (ttk_sd / ttk_mean) : null),
+
         ttk_p95,
         ttk_p95_ci_low,
         ttk_p95_ci_high,
@@ -359,9 +418,42 @@ self.onmessage = (ev) => {
         ttk_ci_half,
         ttk_ci_rel,
 
-        shots_p50: percentile(shotsArr, 0.50),
-        shots_mean: shotsSum / trials,
-        reloads_mean: reloadsSum / trials,
+        // per-metric stats (mean/std/mean-CI)
+        n_trials: trials,
+        ttk_std: ttk_sd,
+        ttk_std_pct: (ttk_mean > 0 ? (ttk_sd / ttk_mean) : null),
+
+        shots_mean: sShots_mean,
+        shots_std: sShots_std,
+        shots_mean_ci_low: sShots_mean - sShots_half,
+        shots_mean_ci_high: sShots_mean + sShots_half,
+        shots_p50,
+        shots_p50_ci_low,
+        shots_p50_ci_high,
+
+        reloads_mean: sRel_mean,
+        reloads_std: sRel_std,
+        reloads_mean_ci_low: sRel_mean - sRel_half,
+        reloads_mean_ci_high: sRel_mean + sRel_half,
+        reloads_p50,
+        reloads_p50_ci_low,
+        reloads_p50_ci_high,
+
+        reload_time_mean: sRTime_mean,
+        reload_time_std: sRTime_std,
+        reload_time_mean_ci_low: sRTime_mean - sRTime_half,
+        reload_time_mean_ci_high: sRTime_mean + sRTime_half,
+        reload_time_p50,
+        reload_time_p50_ci_low,
+        reload_time_p50_ci_high,
+
+        fire_time_mean: sFire_mean,
+        fire_time_std: sFire_std,
+        fire_time_mean_ci_low: sFire_mean - sFire_half,
+        fire_time_mean_ci_high: sFire_mean + sFire_half,
+        fire_time_p50,
+        fire_time_p50_ci_low,
+        fire_time_p50_ci_high,
 
         damage_per_bullet: cfg.stats.damage_per_bullet,
         fire_rate_bps: cfg.stats.fire_rate_bps,

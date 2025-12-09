@@ -1,5 +1,649 @@
 [
   {
+    "weapon": "Aphelion",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 1,
+    "bullets_to_kill": 2,
+    "reloads": 0,
+    "damage_per_bullet": 50,
+    "fire_rate_bps": 1,
+    "mag_size": 5,
+    "reload_time_s": 2,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Aphelion",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 2,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 50,
+    "fire_rate_bps": 1,
+    "mag_size": 5,
+    "reload_time_s": 2,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Aphelion",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 2,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 50,
+    "fire_rate_bps": 1,
+    "mag_size": 5,
+    "reload_time_s": 2,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Aphelion",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 3,
+    "bullets_to_kill": 4,
+    "reloads": 0,
+    "damage_per_bullet": 50,
+    "fire_rate_bps": 1,
+    "mag_size": 5,
+    "reload_time_s": 2,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 2.9850746268656714,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.67,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 2.9850746268656714,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.67,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 2.9850746268656714,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.67,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 4.477611940298507,
+    "bullets_to_kill": 4,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.67,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 2,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 2.388059701492537,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.8375,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 2,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 2.388059701492537,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.8375,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 2,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 2.388059701492537,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.8375,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 2,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 3.5820895522388057,
+    "bullets_to_kill": 4,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 0.8375,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 3,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 1.990049751243781,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.0050000000000001,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 3,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 1.990049751243781,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.0050000000000001,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 3,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 1.990049751243781,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.0050000000000001,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 3,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 2.9850746268656714,
+    "bullets_to_kill": 4,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.0050000000000001,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 4,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 1.7057569296375266,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.1725,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 4,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 1.7057569296375266,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.1725,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 4,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 1.7057569296375266,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.1725,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Anvil Splitter",
+    "tier": 4,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 2.5586353944562896,
+    "bullets_to_kill": 4,
+    "reloads": 0,
+    "damage_per_bullet": 48,
+    "fire_rate_bps": 1.1725,
+    "mag_size": 6,
+    "reload_time_s": 0.84,
+    "reload_amount": 1,
+    "headshot_mult": 2.5,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Equalizer",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 1.8461538461538458,
+    "bullets_to_kill": 13,
+    "reloads": 0,
+    "damage_per_bullet": 8,
+    "fire_rate_bps": 6.5,
+    "mag_size": 50,
+    "reload_time_s": 3,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Equalizer",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 2.1538461538461533,
+    "bullets_to_kill": 15,
+    "reloads": 0,
+    "damage_per_bullet": 8,
+    "fire_rate_bps": 6.5,
+    "mag_size": 50,
+    "reload_time_s": 3,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Equalizer",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 2.461538461538461,
+    "bullets_to_kill": 17,
+    "reloads": 0,
+    "damage_per_bullet": 8,
+    "fire_rate_bps": 6.5,
+    "mag_size": 50,
+    "reload_time_s": 3,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Equalizer",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 2.6153846153846145,
+    "bullets_to_kill": 18,
+    "reloads": 0,
+    "damage_per_bullet": 8,
+    "fire_rate_bps": 6.5,
+    "mag_size": 50,
+    "reload_time_s": 3,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Jupiter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "NoShield",
+    "target_hp": 100,
+    "target_shield": 0,
+    "target_dr": 0,
+    "ttk_s": 1.25,
+    "bullets_to_kill": 2,
+    "reloads": 0,
+    "damage_per_bullet": 60,
+    "fire_rate_bps": 0.8,
+    "mag_size": 5,
+    "reload_time_s": 2.5,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Jupiter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Light",
+    "target_hp": 100,
+    "target_shield": 40,
+    "target_dr": 0.4,
+    "ttk_s": 2.5,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 60,
+    "fire_rate_bps": 0.8,
+    "mag_size": 5,
+    "reload_time_s": 2.5,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Jupiter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Medium",
+    "target_hp": 100,
+    "target_shield": 70,
+    "target_dr": 0.425,
+    "ttk_s": 2.5,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 60,
+    "fire_rate_bps": 0.8,
+    "mag_size": 5,
+    "reload_time_s": 2.5,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
+    "weapon": "Jupiter",
+    "tier": 1,
+    "attachments": "none",
+    "accuracy_profile": "Body only",
+    "acc_body": 1,
+    "acc_head": 0,
+    "acc_limbs": 0,
+    "target": "Heavy",
+    "target_hp": 100,
+    "target_shield": 80,
+    "target_dr": 0.525,
+    "ttk_s": 2.5,
+    "bullets_to_kill": 3,
+    "reloads": 0,
+    "damage_per_bullet": 60,
+    "fire_rate_bps": 0.8,
+    "mag_size": 5,
+    "reload_time_s": 2.5,
+    "reload_amount": 0,
+    "headshot_mult": 2,
+    "limbs_mult": 0.9
+  },
+  {
     "weapon": "Bobcat",
     "tier": 1,
     "attachments": "none",
@@ -5907,7 +6551,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -5930,7 +6574,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -5953,7 +6597,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -5976,7 +6620,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -5999,7 +6643,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6022,7 +6666,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6045,7 +6689,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6068,7 +6712,7 @@
     "mag_size": 4,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6091,7 +6735,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6114,7 +6758,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6137,7 +6781,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6160,7 +6804,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6183,7 +6827,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6206,7 +6850,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6229,7 +6873,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6252,7 +6896,7 @@
     "mag_size": 6,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6275,7 +6919,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6298,7 +6942,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6321,7 +6965,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6344,7 +6988,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6367,7 +7011,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6390,7 +7034,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6413,7 +7057,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6436,7 +7080,7 @@
     "mag_size": 8,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6459,7 +7103,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6482,7 +7126,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6505,7 +7149,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6528,7 +7172,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6551,7 +7195,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6574,7 +7218,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6597,7 +7241,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6620,7 +7264,7 @@
     "mag_size": 10,
     "reload_time_s": 3.5,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6643,7 +7287,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6666,7 +7310,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6689,7 +7333,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6712,7 +7356,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6735,7 +7379,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6758,7 +7402,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6781,7 +7425,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6804,7 +7448,7 @@
     "mag_size": 4,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6827,7 +7471,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6850,7 +7494,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6873,7 +7517,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6896,7 +7540,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6919,7 +7563,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6942,7 +7586,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6965,7 +7609,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -6988,7 +7632,7 @@
     "mag_size": 6,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7011,7 +7655,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7034,7 +7678,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7057,7 +7701,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7080,7 +7724,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7103,7 +7747,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7126,7 +7770,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7149,7 +7793,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7172,7 +7816,7 @@
     "mag_size": 8,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7195,7 +7839,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7218,7 +7862,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7241,7 +7885,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7264,7 +7908,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7287,7 +7931,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7310,7 +7954,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7333,7 +7977,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7356,7 +8000,7 @@
     "mag_size": 10,
     "reload_time_s": 3.03345,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7379,7 +8023,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7402,7 +8046,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7425,7 +8069,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7448,7 +8092,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7471,7 +8115,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7494,7 +8138,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7517,7 +8161,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7540,7 +8184,7 @@
     "mag_size": 4,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7563,7 +8207,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7586,7 +8230,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7609,7 +8253,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7632,7 +8276,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7655,7 +8299,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7678,7 +8322,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7701,7 +8345,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7724,7 +8368,7 @@
     "mag_size": 6,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7747,7 +8391,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7770,7 +8414,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7793,7 +8437,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7816,7 +8460,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7839,7 +8483,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7862,7 +8506,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7885,7 +8529,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7908,7 +8552,7 @@
     "mag_size": 8,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7931,7 +8575,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7954,7 +8598,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -7977,7 +8621,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8000,7 +8644,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8023,7 +8667,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8046,7 +8690,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8069,7 +8713,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8092,7 +8736,7 @@
     "mag_size": 10,
     "reload_time_s": 2.5665500000000003,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8115,7 +8759,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8138,7 +8782,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8161,7 +8805,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8184,7 +8828,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8207,7 +8851,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8230,7 +8874,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8253,7 +8897,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8276,7 +8920,7 @@
     "mag_size": 4,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8299,7 +8943,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8322,7 +8966,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8345,7 +8989,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8368,7 +9012,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8391,7 +9035,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8414,7 +9058,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8437,7 +9081,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8460,7 +9104,7 @@
     "mag_size": 6,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8483,7 +9127,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8506,7 +9150,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8529,7 +9173,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8552,7 +9196,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8575,7 +9219,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8598,7 +9242,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8621,7 +9265,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8644,7 +9288,7 @@
     "mag_size": 8,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8667,7 +9311,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8690,7 +9334,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8713,7 +9357,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8736,7 +9380,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8759,7 +9403,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8782,7 +9426,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8805,7 +9449,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -8828,7 +9472,7 @@
     "mag_size": 10,
     "reload_time_s": 2.1,
     "reload_amount": 0,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -19891,7 +20535,7 @@
     "mag_size": 5,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -19914,7 +20558,7 @@
     "mag_size": 5,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -19937,7 +20581,7 @@
     "mag_size": 5,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -19960,7 +20604,7 @@
     "mag_size": 5,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -19983,7 +20627,7 @@
     "mag_size": 6,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20006,7 +20650,7 @@
     "mag_size": 6,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20029,7 +20673,7 @@
     "mag_size": 6,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20052,7 +20696,7 @@
     "mag_size": 6,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20075,7 +20719,7 @@
     "mag_size": 7,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20098,7 +20742,7 @@
     "mag_size": 7,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20121,7 +20765,7 @@
     "mag_size": 7,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20144,7 +20788,7 @@
     "mag_size": 7,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20167,7 +20811,7 @@
     "mag_size": 8,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20190,7 +20834,7 @@
     "mag_size": 8,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20213,7 +20857,7 @@
     "mag_size": 8,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {
@@ -20236,7 +20880,7 @@
     "mag_size": 8,
     "reload_time_s": 0.41625,
     "reload_amount": 1,
-    "headshot_mult": 2,
+    "headshot_mult": 1,
     "limbs_mult": 0.9
   },
   {

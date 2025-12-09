@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ARC Raiders — TTK Explorer</title>
+  <title>ARC Raiders — TTK Simulator</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="title">ARC Raiders</div>
-        <div class="subtitle">TTK Explorer (static)</div>
+        <div class="subtitle">TTK Simulator</div>
       </div>
 
       <div class="panel">
@@ -24,17 +24,14 @@
         <label class="label">Tiers</label>
         <div id="tierChecks" class="tierChecks"></div>
 
-        <label class="label">Top N</label>
-        <input id="topN" type="number" min="10" step="10" value="200" />
+        <label class="check">
+          <input id="baseOnly" type="checkbox" checked />
+          Base only (no attachments)
+        </label>
 
         <label class="check">
           <input id="stackEq" type="checkbox" checked />
           Stack equivalent results (same TTK)
-        </label>
-
-        <label class="check">
-          <input id="baseOnly" type="checkbox" />
-          Base only (no attachments)
         </label>
 
         <label class="label">Stack tolerance (seconds)</label>
@@ -44,10 +41,7 @@
       <div class="panel">
         <div class="panelTitle">Custom preset (simulated)</div>
 
-        <label class="check">
-          <input id="useCustom" type="checkbox" />
-          Enable custom accuracy + miss
-        </label>
+        <!-- Removed custom enable checkbox; custom simulation always available -->
 
         <div class="row2">
           <div>
@@ -83,7 +77,7 @@
           <option value="0.99">99%</option>
         </select>
 
-        <button id="runBtn" disabled>Start simulation</button>
+        <button id="runBtn">Start simulation</button>
         <div class="hint" id="status"></div>
 
         <button id="downloadBtn" class="ghost" disabled>Download current rows (.json)</button>
@@ -103,6 +97,72 @@
       </div>
 
       <div class="tableWrap">
+        <div class="chartGlobalControls">
+          <label class="chartCtl">
+            <span>Metric</span>
+            <select id="graphMetric">
+              <option value="ttk">TTK</option>
+              <option value="shots">Shots</option>
+              <option value="fire_time">Fire time</option>
+              <option value="reloads">Reloads</option>
+              <option value="reload_time">Reload time</option>
+            </select>
+          </label>
+        </div>
+        <div class="card chartCard">
+          <div class="chartHeader">
+            <div class="chartTitle">Weapons graph</div>
+            <div class="chartMeta" id="chartMeta"></div>
+          </div>
+
+          <div class="chartWrap">
+            <canvas id="ttkChart"></canvas>
+            <div id="chartTooltip" class="chartTooltip" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div class="card chartCard" id="compareCard" style="display:none;">
+          <div class="chartHeader">
+            <div>
+              <div class="chartTitle">Weapon comparison</div>
+              <div class="chartMeta" id="compareMeta"></div>
+            </div>
+
+            <div class="chartControls">
+              <label class="chartCtl">
+                <span>Weapon</span>
+                <select id="compareWeapon"></select>
+              </label>
+
+              <label class="chartCtl">
+                <span>Compare by</span>
+                <select id="compareMode">
+                  <option value="tier">Tier</option>
+                  <option value="attachments">Attachments</option>
+                </select>
+              </label>
+
+              <label class="chartCtl" id="compareTierCtl" style="display:none;">
+                <span>Tier</span>
+                <select id="compareTier"></select>
+              </label>
+            </div>
+          </div>
+
+          <div class="chartWrap">
+            <canvas id="compareChart"></canvas>
+            <div id="compareTooltip" class="chartTooltip" style="display:none;"></div>
+          </div>
+        </div>
+
+        <label class="chartCtl">
+          <span>Table values</span>
+          <select id="tableCenter">
+            <option value="mean" selected>Mean</option>
+            <option value="median">Median</option>
+          </select>
+        </label>
+
         <table>
           <thead>
             <tr>
@@ -111,12 +171,9 @@
               <th class="sortable" data-sort="attachments">attachments</th>
               <th class="sortable num" data-sort="ttk">ttk</th>
               <th class="sortable num" data-sort="shots">shots</th>
+              <th class="sortable num" data-sort="fire_time">fire time</th>
               <th class="sortable num" data-sort="reloads">reloads</th>
-              <th class="sortable num" data-sort="dmg">dmg</th>
-              <th class="sortable num" data-sort="bps">bps</th>
-              <th class="sortable num" data-sort="mag">mag</th>
-              <th class="sortable num" data-sort="rld">rld</th>
-              <th class="sortable num" data-sort="ra">ra</th>
+              <th class="sortable num" data-sort="reload_time">reload time</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
