@@ -173,7 +173,7 @@ async function loadPresetById(presetId){
       currentRows = window.lastCustomRows || [];
       const presetName = p.name;
       const meta = presetMetaFromRows(currentRows);
-      $("heading").textContent = meta ? `Fastest setups — ${presetName} · ${meta}` : `Fastest setups — ${presetName}`;
+      $("heading").textContent = meta ? `Best TTK — ${presetName} · ${meta}` : `Best TTK — ${presetName}`;
       document.title = meta ? `ARC Raiders — ${presetName} · ${meta}` : `ARC Raiders — ${presetName}`;
       ensureTargetTierOptions(currentRows);
       setStatus("");
@@ -186,7 +186,7 @@ async function loadPresetById(presetId){
     currentRows = await fetchJSON(PATH_PRESETS + p.file);
     const presetName = p.name;
     const meta = presetMetaFromRows(currentRows);
-    $("heading").textContent = meta ? `Fastest setups — ${presetName} · ${meta}` : `Fastest setups — ${presetName}`;
+    $("heading").textContent = meta ? `Best TTK — ${presetName} · ${meta}` : `Best TTK — ${presetName}`;
     document.title = meta ? `ARC Raiders — ${presetName} · ${meta}` : `ARC Raiders — ${presetName}`;
     syncTargetTierFromRows(currentRows);
     setStatus("");
@@ -221,7 +221,7 @@ function customTitleParts(p){
 
 function setCustomTitle(p){
   const { name, meta } = customTitleParts(p || {});
-  $("heading").textContent = meta ? `Fastest setups — ${name} · ${meta}` : `Fastest setups — ${name}`;
+  $("heading").textContent = meta ? `Best TTK — ${name} · ${meta}` : `Best TTK — ${name}`;
   document.title = meta ? `ARC Raiders — ${name} · ${meta}` : `ARC Raiders — ${name}`;
 }
 function presetMetaFromRows(rows){
