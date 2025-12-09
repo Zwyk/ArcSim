@@ -612,10 +612,18 @@ function stackEquivalent(rows, tol){
       const g = groups.get(key);
       g.variants.push(r);
 
-      // keep cheapest representative by attachmentRank
+      // Choose representative by lowest actual TTK; break ties by cheaper attachments
       const cur = g.rep;
-      if(attachmentRank(r.attachments) < attachmentRank(cur.attachments)){
-        g.rep = r;
+      const curT = metricTTK(cur);
+      const candT = metricTTK(r);
+      if (Number.isFinite(candT) && Number.isFinite(curT)){
+        if (candT < curT - 1e-12){
+          g.rep = r;
+        } else if (Math.abs(candT - curT) <= 1e-12){
+          if (attachmentRank(r.attachments) < attachmentRank(cur.attachments)){
+            g.rep = r;
+          }
+        }
       }
     }
   }
