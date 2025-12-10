@@ -42,6 +42,59 @@ function rarityColor(rar){
   return col;
 }
 
+// --- Attachment rarity (for compare-by-attachments colors) ---
+const ATTACHMENT_RARITY = {
+  "Extended Mags I": "Common",
+  "Extended Mags II": "Uncommon",
+  "Extended Mags III": "Rare",
+  "Kinetic Converter": "Legendary",
+};
+
+const RARITY_RANK = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5 };
+
+// Strip counts/variant suffixes and extra spaces
+function cleanAttachmentName(s){
+  return String(s || "")
+    // remove "(+3 variants)" / "(+1 variant)"
+    .replace(/\(\+\d+\s*variants?\)/gi, "")
+    // remove plain "(+5)" style suffixes
+    .replace(/\(\+\d+\)/gi, "")
+    .trim();
+}
+
+// Decide rarity from the *pattern* in the attachment name
+function attachmentRarityOfName(name){
+  const n = cleanAttachmentName(name);
+
+  if (/kinetic converter/i.test(n)) return "Legendary";
+  if (/extended.*mag iii/i.test(n))  return "Rare";
+  if (/extended.*mag ii/i.test(n))   return "Uncommon";
+  if (/extended.*mag i\b/i.test(n))  return "Common";
+
+  return "Common";
+}
+
+// Highest rarity among all attachments in the combo
+function attachmentsRarity(attachmentsStr){
+  const s = String(attachmentsStr || "").trim();
+  if (!s || s === "none") return "Common";
+
+  // split only on " + " between attachments, not on "(+5)"
+  const parts = s
+    .split(/\s+\+\s+/)
+    .map(cleanAttachmentName)
+    .filter(Boolean);
+
+  let best = "Common";
+  for (const p of parts){
+    const r = attachmentRarityOfName(p);
+    if ((RARITY_RANK[r] || 0) > (RARITY_RANK[best] || 0)) {
+      best = r;
+    }
+  }
+  return best;
+}
+
 async function fetchJSON(url){
   const r = await fetch(url, { cache: "no-store" });
   if(!r.ok) throw new Error(`Failed to fetch ${url}: ${r.status}`);
@@ -815,7 +868,9 @@ function render(){
         mean: M.mean(best),
         p50: M.p50(best),
         sd:   M.sd(best),
-        detail: (best.attachments || "none") + " · (best setup)"
+        detail: (best.attachments || "none") + " · (best setup)",
+        barColor: rarityColor(rarityOf(W)),
+        labelColor: rarityColor(rarityOf(W))
       });
     }
     items.sort((a,b)=>Number(a.label.split(" ")[1]) - Number(b.label.split(" ")[1]));
@@ -836,13 +891,20 @@ function render(){
     const top = cand.slice(0, 12);
 
     const M = getMetricDef(uiState.graphMetric || "ttk");
-    items = top.map(r => ({
-      label: r.attachments || "none",
-      mean: M.mean(r),
-      p50: M.p50(r),
-      sd:   M.sd(r),
-      detail: `Tier ${t}`
-    }));
+    items = top.map(r => {
+      const rar = attachmentsRarity(r.attachments || "none");
+      const col = rarityColor(rar);
+
+      return {
+        label: r.attachments || "none",
+        mean: M.mean(r),
+        p50: M.p50(r),
+        sd:  M.sd(r),
+        detail: `Tier ${t}`,
+        barColor: col,
+        labelColor: col
+      };
+    });
 
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · Tier ${t} · by attachments · showing ${M.label}`,
@@ -1449,7 +1511,8 @@ function drawTTKChart(rows){
     p50: Number(r.ttk_p50),
     sd: Number(r.ttk_std),
     reloads_mean: r.reloads_mean,
-    row: r
+    row: r,
+    barColor: rarityColor(rarityOf(r.weapon))
   }));
   chartState.items = items;
   chartState._lastRows = rows;
@@ -1473,7 +1536,7 @@ function drawTTKChart(rows){
     return hi;
   }));
   const maxScale = (Number.isFinite(maxHigh) ? maxHigh : 0) * 1.02; // add small headroom so max bar doesn't touch edge
-  const barColor = getThemeColor("--accent", "#ff5a5f");
+  const defaultBarColor = getThemeColor("--accent", "#ff5a5f");
   const textColor = getThemeColor("--text", "#e9eef5");
   const subColor  = "rgba(255,255,255,0.6)";
   const gridColor = "rgba(255,255,255,0.08)";
@@ -1509,7 +1572,8 @@ function drawTTKChart(rows){
     ctx.fillText(`${it.weapon} ${tierRoman(it.tier)}`, 10, y + barH/2);
     const pBar = (maxScale === 0) ? 0 : (it.mean / maxScale);
     const w = Math.max(2, pBar * innerW);
-    ctx.fillStyle = barColor;
+    const fillCol = it.barColor || it.labelColor || defaultBarColor;
+    ctx.fillStyle = fillCol;
     ctx.globalAlpha = (i === chartState.hitIndex) ? 0.95 : 0.75;
     ctx.fillRect(left, y, w, barH);
     ctx.globalAlpha = 1;
@@ -1585,6 +1649,7 @@ function drawBestPerWeaponChart(rowsFiltered){
     sd:   M.sd(r),
     p50:  M.p50(r),
     labelColor: rarityColor(rarityOf(r.weapon)),
+    barColor: rarityColor(rarityOf(r.weapon)),
     detail: `Tier ${r.tier} · ${(r.attachments || "none")}`,
   })).filter(it => Number.isFinite(it.mean));
 
@@ -1650,7 +1715,7 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
     return;
   }
 
-  const barColor = getThemeColor("--accent", "#ff5a5f");
+  const defaultBarColor = getThemeColor("--accent", "#ff5a5f");
   const textColor = getThemeColor("--text", "#e9eef5");
   const subColor  = "rgba(255,255,255,0.65)";
   const gridColor = "rgba(255,255,255,0.08)";
@@ -1719,7 +1784,9 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
     const pBar = (maxScale === 0) ? 0 : (it.mean / maxScale);
     const w = Math.max(2, pBar * innerW);
 
-    ctx.fillStyle = barColor;
+    const fillCol = it.barColor || it.labelColor || defaultBarColor;
+
+    ctx.fillStyle = fillCol;
     ctx.globalAlpha = 0.75;
     ctx.fillRect(left, y, w, barH);
     ctx.globalAlpha = 1;
