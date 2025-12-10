@@ -49,7 +49,7 @@
     "name": "Bobcat",
     "damage": 6.0,
     "fire_rate": 17.15,
-    "mag_size": 50,
+    "mag_size": 20,
     "reload_time_s": 3.45,
     "tier_mods": {
       "reload_time_reduction_pct": [

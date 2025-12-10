@@ -636,6 +636,7 @@ writeJSON("data/presets/presets.json", presets.map(p => ({
   ci_level: p.mode === "mc" ? p.ci : null,
 })));
 
+/*
 let bodyRows = null;
 let typicalRows = null;
 
@@ -664,3 +665,4 @@ if (bodyRows && typicalRows) {
   }
   console.log(`Typical vs Body differences: ${diff}/${typicalRows.length}`);
 }
+*/
