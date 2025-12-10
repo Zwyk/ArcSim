@@ -117,11 +117,31 @@
               <option value="reload_time">Reload time</option>
             </select>
           </label>
+
+          <label class="chartCtl">
+            <span>Order by</span>
+            <select id="graphOrderBy">
+              <option value="ttk">TTK</option>
+              <option value="shots">Shots</option>
+              <option value="fire_time">Fire time</option>
+              <option value="reloads">Reloads</option>
+              <option value="reload_time">Reload time</option>
+            </select>
+          </label>
         </div>
         <div class="card chartCard">
           <div class="chartHeader">
-            <div class="chartTitle">Weapons graph</div>
-            <div class="chartMeta" id="chartMeta"></div>
+            <div>
+              <div class="chartTitle">Weapons graph</div>
+              <div class="chartMeta" id="chartMeta"></div>
+            </div>
+
+            <div class="chartControls">
+              <label class="chartCtl">
+                <span>Max scale</span>
+                <input id="ttkScaleMax" class="chartScaleInput" type="number" min="0" step="0.01" placeholder="auto">
+              </label>
+            </div>
           </div>
 
           <div class="chartWrap">
@@ -135,9 +155,7 @@
             <div>
               <div class="chartTitle">Weapon comparison</div>
               <div class="chartMeta" id="compareMeta"></div>
-            </div>
-
-            <div class="chartControls">
+              <div class="chartControls">
               <label class="chartCtl">
                 <span>Weapon</span>
                 <select id="compareWeapon"></select>
@@ -154,6 +172,14 @@
               <label class="chartCtl" id="compareTierCtl" style="display:none;">
                 <span>Tier</span>
                 <select id="compareTier"></select>
+              </label>
+              </div>
+            </div>
+
+            <div class="chartControls">
+              <label class="chartCtl">
+                <span>Max scale</span>
+                <input id="compareScaleMax" class="chartScaleInput" type="number" min="0" step="0.01" placeholder="auto">
               </label>
             </div>
           </div>

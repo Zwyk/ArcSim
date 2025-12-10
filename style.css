@@ -343,16 +343,31 @@ th.sortable:hover{
   box-sizing: border-box;
 }
 
+.chartCtl input{
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 10px;
+  outline: none;
+  width: 200px;
+  box-sizing: border-box;
+}
+
+.chartScaleInput{
+  width: 110px; /* small field on the right */
+}
+
 /* Table control: match chart controls spacing */
 .tableWrap > .chartCtl{
   margin: 0 0 10px 0;
 }
 
-/* Compare chart: place controls on the left under the title */
+/* Compare chart header: left column (title+controls) and right small controls */
 #compareCard .chartHeader{
-  justify-content: flex-start;
-  align-items: flex-start;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-direction: row;
   gap: 8px;
 }
 
@@ -360,5 +375,7 @@ th.sortable:hover{
 .chartGlobalControls{
   display:flex;
   justify-content:flex-start;
+  align-items:flex-end;
+  gap: 12px;
   margin: 0 0 10px 0;
 }

@@ -408,6 +408,10 @@ function collectUIState(){
     stackEq: $("stackEq")?.checked ?? true,
     stackTol: $("stackTol")?.value ?? "0.000001",
     tableCenter: $("tableCenter")?.value ?? "mean",
+    graphMetric: uiState.graphMetric || "ttk",
+    graphOrderBy: uiState.graphOrderBy || "ttk",
+    ttkScaleMax: uiState.ttkScaleMax,
+    compareScaleMax: uiState.compareScaleMax,
     sortKey,
     sortDir,
   };
@@ -808,6 +812,8 @@ function render(){
   // Keep global metric select in sync
   const gm = document.getElementById("graphMetric");
   if (gm && gm.value !== uiState.graphMetric) gm.value = uiState.graphMetric;
+  const go = document.getElementById("graphOrderBy");
+  if (go && go.value !== uiState.graphOrderBy) go.value = uiState.graphOrderBy;
 
   // Top chart: best per weapon by TTK, but plot selected metric
   drawBestPerWeaponChart(rowsFiltered);
@@ -863,6 +869,8 @@ function render(){
         if (rt < bt) best = r;
       }
       const M = getMetricDef(uiState.graphMetric || "ttk");
+      const orderKey = uiState.graphOrderBy || "ttk";
+      const O = getMetricDef(orderKey);
       items.push({
         label: `Tier ${t}`,
         mean: M.mean(best),
@@ -870,10 +878,12 @@ function render(){
         sd:   M.sd(best),
         detail: (best.attachments || "none") + " · (best setup)",
         barColor: rarityColor(rarityOf(W)),
-        labelColor: rarityColor(rarityOf(W))
+        labelColor: rarityColor(rarityOf(W)),
+        _order: Number(O.mean(best))
       });
     }
-    items.sort((a,b)=>Number(a.label.split(" ")[1]) - Number(b.label.split(" ")[1]));
+    // Order bars by selected ordering metric (ascending)
+    items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
     const M = getMetricDef(uiState.graphMetric || "ttk");
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · by tier · showing ${M.label}`,
@@ -881,7 +891,8 @@ function render(){
       tickDec: M.tickDec,
       valDec: M.valDec,
       left: 150,
-      labelMax: 18
+      labelMax: 18,
+      maxScale: uiState.compareScaleMax
     });
   } else {
     // mode === "attachments": compare attachment setups within chosen tier (top 12 fastest)
@@ -891,6 +902,8 @@ function render(){
     const top = cand.slice(0, 12);
 
     const M = getMetricDef(uiState.graphMetric || "ttk");
+    const orderKey = uiState.graphOrderBy || "ttk";
+    const O = getMetricDef(orderKey);
     items = top.map(r => {
       const rar = attachmentsRarity(r.attachments || "none");
       const col = rarityColor(rar);
@@ -902,9 +915,13 @@ function render(){
         sd:  M.sd(r),
         detail: `Tier ${t}`,
         barColor: col,
-        labelColor: col
+        labelColor: col,
+        _order: Number(O.mean(r))
       };
     });
+
+    // Order bars by selected ordering metric (ascending)
+    items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
 
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · Tier ${t} · by attachments · showing ${M.label}`,
@@ -912,7 +929,8 @@ function render(){
       tickDec: M.tickDec,
       valDec: M.valDec,
       left: 240,
-      labelMax: 34
+      labelMax: 34,
+      maxScale: uiState.compareScaleMax
     });
   }
   const stackOn = $("stackEq").checked;
@@ -1074,6 +1092,45 @@ async function init(){
     });
   }
 
+  // Global order-by select wiring
+  const go = document.getElementById("graphOrderBy");
+  if (go){
+    go.value = uiState.graphOrderBy || "ttk";
+    go.addEventListener("change", () => {
+      uiState.graphOrderBy = go.value;
+      render();
+    });
+  }
+
+  // Chart max scale inputs
+  function parseScaleInput(el){
+    if (!el) return null;
+    const raw = String(el.value || "").trim();
+    if (!raw) return null;
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v <= 0) {
+      el.value = ""; // back to auto
+      return null;
+    }
+    return v;
+  }
+  const tIn = $("ttkScaleMax");
+  if (tIn){
+    tIn.addEventListener("input", () => {
+      uiState.ttkScaleMax = parseScaleInput(tIn);
+      scheduleSave();
+      render();
+    });
+  }
+  const cIn = $("compareScaleMax");
+  if (cIn){
+    cIn.addEventListener("input", () => {
+      uiState.compareScaleMax = parseScaleInput(cIn);
+      scheduleSave();
+      render();
+    });
+  }
+
   // Default preset: Body only (explicit), else first precomputed
   const bodyOnly = presetManifest.find(p => p.id === "preset_body_only")?.id;
   const firstPrecomputed = presetManifest.find(p => p.kind === "precomputed")?.id;
@@ -1085,6 +1142,11 @@ async function init(){
   savedTierSelection = Array.isArray(st.tiersSelected) ? st.tiersSelected : null;
   savedTarget = st.target ?? null;
 
+  if (st.graphMetric) uiState.graphMetric = st.graphMetric;
+  if (st.graphOrderBy) uiState.graphOrderBy = st.graphOrderBy;
+  if ($("graphMetric")) $("graphMetric").value = uiState.graphMetric || "ttk";
+  if ($("graphOrderBy")) $("graphOrderBy").value = uiState.graphOrderBy || "ttk";
+
   if (st.stackTol != null) $("stackTol").value = st.stackTol;
   if (st.baseOnly != null) $("baseOnly").checked = !!st.baseOnly;
   else $("baseOnly").checked = true; // default: Base only on
@@ -1092,6 +1154,13 @@ async function init(){
   if (st.tableCenter && $("tableCenter")) $("tableCenter").value = st.tableCenter;
   if (st.sortKey) sortKey = st.sortKey;
   if (st.sortDir) sortDir = st.sortDir;
+
+  if (st.ttkScaleMax !== undefined) uiState.ttkScaleMax = st.ttkScaleMax;
+  if (st.compareScaleMax !== undefined) uiState.compareScaleMax = st.compareScaleMax;
+  const tInRestore = $("ttkScaleMax");
+  if (tInRestore) tInRestore.value = (Number.isFinite(uiState.ttkScaleMax) && uiState.ttkScaleMax > 0) ? String(uiState.ttkScaleMax) : "";
+  const cInRestore = $("compareScaleMax");
+  if (cInRestore) cInRestore.value = (Number.isFinite(uiState.compareScaleMax) && uiState.compareScaleMax > 0) ? String(uiState.compareScaleMax) : "";
 
   if (st.presetFile) {
     const ok = [...$("presetSelect").options].some(o => o.value === st.presetFile);
@@ -1102,7 +1171,7 @@ async function init(){
 
   // Wire saving after restore
   [
-    "presetSelect","targetSelect","stackEq","stackTol","baseOnly"
+    "presetSelect","targetSelect","stackEq","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax"
   ].forEach(id => {
     const el = $(id);
     if (!el) return;
@@ -1383,6 +1452,9 @@ uiState.compareWeapon = uiState.compareWeapon || "";
 uiState.compareMode = uiState.compareMode || "tier"; // 'tier' | 'attachments'
 uiState.compareTier = uiState.compareTier || 4;       // used when mode='attachments'
 uiState.graphMetric = uiState.graphMetric || "ttk";
+uiState.graphOrderBy = uiState.graphOrderBy || "ttk";
+if (uiState.ttkScaleMax === undefined) uiState.ttkScaleMax = null;
+if (uiState.compareScaleMax === undefined) uiState.compareScaleMax = null;
 
 // Metric definitions for charts
 const METRIC_DEF = {
@@ -1640,8 +1712,15 @@ function drawBestPerWeaponChart(rowsFiltered){
     if (!cur || t < curT) bestByWeapon.set(w, r);
   }
 
-  const bestRows = [...bestByWeapon.values()]
-    .sort((a,b)=> (Number.isFinite(a.ttk_mean)?a.ttk_mean:metricTTK(a)) - (Number.isFinite(b.ttk_mean)?b.ttk_mean:metricTTK(b)));
+  const bestRows = [...bestByWeapon.values()];
+  // Order bars by selected ordering metric (ascending)
+  const orderKey = uiState.graphOrderBy || "ttk";
+  const O = getMetricDef(orderKey);
+  bestRows.sort((a,b)=>{
+    const av = Number(O.mean(a));
+    const bv = Number(O.mean(b));
+    return (Number.isFinite(av) ? av : Infinity) - (Number.isFinite(bv) ? bv : Infinity);
+  });
 
   const items = bestRows.map(r => ({
     label: `${r.weapon} ${tierRoman(r.tier)}${(r.attachments && r.attachments !== "none") ? " (+)" : ""}`,
@@ -1659,7 +1738,8 @@ function drawBestPerWeaponChart(rowsFiltered){
     tickDec: M.tickDec,
     valDec: M.valDec,
     left: 160,
-    labelMax: 28
+    labelMax: 28,
+    maxScale: uiState.ttkScaleMax
   });
 }
 
@@ -1726,7 +1806,10 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
     const hi = Number.isFinite(sd) ? (mu + sd) : mu;
     return hi;
   }));
-  const maxScale = (Number.isFinite(maxHigh) ? maxHigh : 0) * 1.02;
+  const maxScale =
+    (Number.isFinite(opts.maxScale) && opts.maxScale > 0)
+      ? opts.maxScale
+      : ((Number.isFinite(maxHigh) ? maxHigh : 0) * 1.02);
 
   // Compute dynamic left padding based on label widths so bars don't overlap labels
   ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
