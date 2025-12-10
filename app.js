@@ -885,6 +885,8 @@ function render(){
     // Order bars by selected ordering metric (ascending)
     items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
     const M = getMetricDef(uiState.graphMetric || "ttk");
+    const scaleRows = currentRows.filter(r => r.weapon === W);
+    const autoMaxHigh = maxWhiskerFromRows(scaleRows, M);
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · by tier · showing ${M.label}`,
       unit: M.unit,
@@ -892,7 +894,8 @@ function render(){
       valDec: M.valDec,
       left: 150,
       labelMax: 18,
-      maxScale: uiState.compareScaleMax
+      maxScale: uiState.compareScaleMax,
+      autoMaxHigh
     });
   } else {
     // mode === "attachments": compare attachment setups within chosen tier (top 12 fastest)
@@ -923,6 +926,8 @@ function render(){
     // Order bars by selected ordering metric (ascending)
     items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
 
+    const scaleRows2 = currentRows.filter(r => r.weapon === W);
+    const autoMaxHigh2 = maxWhiskerFromRows(scaleRows2, M);
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · Tier ${t} · by attachments · showing ${M.label}`,
       unit: M.unit,
@@ -930,7 +935,8 @@ function render(){
       valDec: M.valDec,
       left: 240,
       labelMax: 34,
-      maxScale: uiState.compareScaleMax
+      maxScale: uiState.compareScaleMax,
+      autoMaxHigh: autoMaxHigh2
     });
   }
   const stackOn = $("stackEq").checked;
@@ -1484,6 +1490,35 @@ const METRIC_DEF = {
                 p50:  r => NaN },
 };
 
+// Compute the maximum "whisker" (mean + sd) across a set of rows for a given metric
+function maxWhiskerFromRows(rows, M){
+  let maxHi = 0;
+  for (const r of (rows || [])){
+    const mu = Number(M.mean(r));
+    if (!Number.isFinite(mu)) continue;
+    const sd = Number(M.sd(r));
+    const hi = Number.isFinite(sd) ? (mu + sd) : mu;
+    if (hi > maxHi) maxHi = hi;
+  }
+  return maxHi;
+}
+
+// Choose a "nice" major tick step for a given range
+function niceStep(range, targetMajors = 4){
+  if (!Number.isFinite(range) || range <= 0) return 1;
+  const raw = range / Math.max(1, targetMajors);
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const err = raw / pow;
+
+  let step;
+  if (err <= 1) step = 1;
+  else if (err <= 2) step = 2;
+  else if (err <= 5) step = 5;
+  else step = 10;
+
+  return step * pow;
+}
+
 function getMetricDef(key){
   return METRIC_DEF[key] || METRIC_DEF.ttk;
 }
@@ -1732,6 +1767,7 @@ function drawBestPerWeaponChart(rowsFiltered){
     detail: `Tier ${r.tier} · ${(r.attachments || "none")}`,
   })).filter(it => Number.isFinite(it.mean));
 
+  const autoMaxHigh = maxWhiskerFromRows(currentRows, M);
   drawHBarChart("ttkChart", "chartTooltip", "chartMeta", items, {
     titleRight: `${items.length} weapons · showing ${M.label}`,
     unit: M.unit,
@@ -1739,7 +1775,8 @@ function drawBestPerWeaponChart(rowsFiltered){
     valDec: M.valDec,
     left: 160,
     labelMax: 28,
-    maxScale: uiState.ttkScaleMax
+    maxScale: uiState.ttkScaleMax,
+    autoMaxHigh
   });
 }
 
@@ -1806,10 +1843,13 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
     const hi = Number.isFinite(sd) ? (mu + sd) : mu;
     return hi;
   }));
-  const maxScale =
+  const autoHigh = (Number.isFinite(opts.autoMaxHigh) && opts.autoMaxHigh > 0)
+    ? opts.autoMaxHigh
+    : (Number.isFinite(maxHigh) ? maxHigh : 0);
+  let maxScale =
     (Number.isFinite(opts.maxScale) && opts.maxScale > 0)
       ? opts.maxScale
-      : ((Number.isFinite(maxHigh) ? maxHigh : 0) * 1.02);
+      : (autoHigh * 1.02);
 
   // Compute dynamic left padding based on label widths so bars don't overlap labels
   ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
@@ -1823,28 +1863,71 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
   const left = Math.max(opts.left ?? 140, 10 + maxLabelW + 10);
   const innerW = Math.max(10, cssW - left - right);
 
-  // grid + ticks (0..maxScale)
+  // grid + ticks (0..maxScale) with nice snapping
   ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   ctx.fillStyle = subColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const ticks = 4;
+  const manualMax = Number.isFinite(opts.maxScale) && opts.maxScale > 0;
+  const majorStep = niceStep(maxScale, opts.majorTicks ?? 4);
+  const minor = opts.minorTicks ?? 3;
+
+  // Snap auto scale to a nice multiple (manual max stays exact)
+  if (!manualMax && Number.isFinite(maxScale) && maxScale > 0 && Number.isFinite(majorStep) && majorStep > 0){
+    maxScale = Math.ceil(maxScale / majorStep) * majorStep;
+  }
+
   const tickY = 14 + headerH/2;
+  const unit = opts.unit ?? "s";
+  const tickDec = opts.tickDec ?? 2;
 
-  for (let i=0;i<=ticks;i++){
-    const p = i / ticks;
-    const x = left + p * innerW;
+  // ---- minor gridlines (no labels) ----
+  if (minor > 0 && Number.isFinite(majorStep) && majorStep > 0){
+    const minorStep = majorStep / (minor + 1);
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    for (let v = 0; v + majorStep <= maxScale + 1e-12; v += majorStep){
+      for (let j = 1; j <= minor; j++){
+        const vv = v + j * minorStep;
+        const x = left + (vv / maxScale) * innerW;
+        ctx.beginPath();
+        ctx.moveTo(x, top - 6);
+        ctx.lineTo(x, finalH - 12);
+        ctx.stroke();
+      }
+    }
+  }
 
-    ctx.strokeStyle = gridColor;
+  // ---- major gridlines + labels ----
+  ctx.strokeStyle = gridColor;
+  for (let v = 0; v <= maxScale + 1e-12; v += majorStep){
+    const x = left + (v / maxScale) * innerW;
+
     ctx.beginPath();
     ctx.moveTo(x, top - 6);
     ctx.lineTo(x, finalH - 12);
     ctx.stroke();
 
-    const v = p * maxScale;
-    const xText = (i === ticks) ? (x - 6) : x; // tiny right padding to avoid edge overlap
-    ctx.fillText(`${v.toFixed(opts.tickDec ?? 2)}${opts.unit ?? "s"}`, xText, tickY);
+    const label = `${v.toFixed(tickDec)}${unit}`;
+    const pad = 6;
+    const xText = (v + majorStep > maxScale + 1e-12) ? (x - pad) : x;
+    ctx.fillText(label, xText, tickY);
+  }
+
+  // If manual max doesn't land on a major tick, draw final labeled line at maxScale
+  if (manualMax && Number.isFinite(majorStep) && majorStep > 0){
+    const eps = 1e-9;
+    const rem = Math.abs((maxScale / majorStep) - Math.round(maxScale / majorStep));
+    if (rem > eps){
+      const x = left + innerW;
+      ctx.strokeStyle = gridColor;
+      ctx.beginPath();
+      ctx.moveTo(x, top - 6);
+      ctx.lineTo(x, finalH - 12);
+      ctx.stroke();
+
+      ctx.fillText(`${maxScale.toFixed(tickDec)}${unit}`, x - 6, tickY);
+    }
   }
 
   // bars + markers
