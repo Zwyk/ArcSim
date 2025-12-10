@@ -1163,11 +1163,11 @@ async function runCustomSim(){
     const body = clamp01(1 - head - limbs);
     const miss = clamp01((+$("missPct").value)/100);
 
-    const trials = Math.max(100, +$("trials").value || 5000);
+    const trials = Math.max(100, +$("trials").value || 1000);
     const seed = (+$("seed").value || 1337) >>> 0;
     const confidence = parseFloat($("confidence").value || "0.95");
 
-    const params = { target, tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence };
+    const params = { target: "ALL", tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence };
     lastCustomParams = { body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), tiers, trials, confidence };
 
     const key = cacheKey(params);

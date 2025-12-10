@@ -268,203 +268,196 @@ self.onmessage = (ev) => {
 
   try{
     const { weapons, attachments, params } = msg;
-    const { target, tiers, body, head, limbs, miss, trials, seed, confidence } = params;
+    const { target, targets, tiers, body, head, limbs, miss, trials, seed, confidence } = params;
 
-    const tgt = TARGETS[target];
-    if(!tgt) throw new Error(`Unknown target: ${target}`);
+    // Normalize accuracy inputs and miss rate
+    const b = Number(body ?? 0);
+    const h = Number(head ?? 0);
+    const l = Number(limbs ?? 0);
+    const totalAcc = b + h + l;
+    const nBody = totalAcc > 0 ? (b / totalAcc) : 0;
+    const nHead = totalAcc > 0 ? (h / totalAcc) : 0;
+    const nLimbs = totalAcc > 0 ? (l / totalAcc) : 0;
+    const pMiss = clamp01(Number(miss ?? 0));
 
-    const pHead = clamp01(head);
-    const pLimbs = clamp01(limbs);
-    const pBody = clamp01(body);
-    const sum = pBody + pHead + pLimbs;
-    const nBody = pBody / sum;
-    const nHead = pHead / sum;
-    const nLimbs = pLimbs / sum;
-
-    const pMiss = clamp01(miss);
-
-    const attByWeapon = groupAttachmentsByWeapon(attachments);
-
-    // Build all configs
+    // Build configs across weapons, tiers, and attachment combos
+    const tierList = Array.isArray(tiers) && tiers.length ? tiers.map(Number) : [1,2,3,4];
+    const attachMap = groupAttachmentsByWeapon(attachments || []);
     const configs = [];
-    for(const w of weapons){
-      const base = buildWeaponBase(w);
-      const tmap = attByWeapon.get(base.weapon) || new Map();
-      const combos = combosForTypes(tmap); // includes "none" for each type
 
-      for(const tier of tiers){
-        const tiered = applyTierMods({ ...base }, tier);
-        for(const combo of combos){
-          const finalStats = applyAttachments(tiered, combo);
-          configs.push({
-            weapon: finalStats.weapon,
-            tier,
-            attachments: finalStats.attachments,
-            stats: finalStats,
-          });
+    for(const w of (weapons || [])){
+      for(const t of tierList){
+        const base = applyTierMods(buildWeaponBase(w), t);
+        const typeMap = attachMap.get(w.name);
+        if(typeMap){
+          const combos = combosForTypes(typeMap);
+          for(const combo of combos){
+            const stats = applyAttachments(base, combo);
+            configs.push({ weapon:w.name, tier:t, attachments:stats.attachments, stats });
+          }
+        } else {
+          configs.push({ weapon:w.name, tier:t, attachments:"none", stats:base });
         }
       }
     }
+    // If target is "ALL" (or missing), simulate all shields.
+    // You can also pass params.targets = ["NoShield","Light",...]
+    const targetList = Array.isArray(targets)
+      ? targets
+      : (target === "ALL" || target == null ? Object.keys(TARGETS) : [target]);
 
-    const total = configs.length;
+    for (const tName of targetList){
+      if (!TARGETS[tName]) throw new Error(`Unknown target: ${tName}`);
+    }
+    const total = configs.length * targetList.length;
     const rows = [];
     let done = 0;
 
-    for(let i=0;i<configs.length;i++){
+    for (let i = 0; i < configs.length; i++){
       const cfg = configs[i];
-      const rng = mulberry32((seed + i*1013904223) >>> 0);
 
-      const ttks = new Array(trials);
-      const shotsArr = new Array(trials);
-      const reloadsArr = new Array(trials);
-      const reloadTimeArr = new Array(trials);
-      const fireTimeArr = new Array(trials);
-      let shotsSum = 0;
-      let reloadsSum = 0;
+      for (let ti = 0; ti < targetList.length; ti++){
+        const targetName = targetList[ti];
+        const tgt = TARGETS[targetName];
 
-      for(let k=0;k<trials;k++){
-        const shots = shotsToKillTrial(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, rng);
-        const tr = ttkAndReloadsFromShots(shots, cfg.stats);
-        const ttkVal = tr.ttk;
-        const rels = tr.reloads;
-        const rTime = rels * cfg.stats.reload_time_s;
-        const fTime = ttkVal - rTime;
-        ttks[k] = ttkVal;
-        shotsArr[k] = shots;
-        reloadsArr[k] = rels;
-        reloadTimeArr[k] = rTime;
-        fireTimeArr[k] = fTime;
-        shotsSum += shots;
-        reloadsSum += rels;
+        // Different deterministic RNG stream per (config, target)
+        const rng = mulberry32((seed + i*1013904223 + ti*374761393) >>> 0);
+
+        const ttks = new Array(trials);
+        const shotsArr = new Array(trials);
+        const reloadsArr = new Array(trials);
+        const reloadTimeArr = new Array(trials);
+        const fireTimeArr = new Array(trials);
+        let shotsSum = 0;
+        let reloadsSum = 0;
+
+        for (let k = 0; k < trials; k++){
+          const shots = shotsToKillTrial(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, rng);
+          const tr = ttkAndReloadsFromShots(shots, cfg.stats);
+          const ttkVal = tr.ttk;
+          const rels = tr.reloads;
+          const rTime = rels * cfg.stats.reload_time_s;
+          const fTime = ttkVal - rTime;
+
+          ttks[k] = ttkVal;
+          shotsArr[k] = shots;
+          reloadsArr[k] = rels;
+          reloadTimeArr[k] = rTime;
+          fireTimeArr[k] = fTime;
+
+          shotsSum += shots;
+          reloadsSum += rels;
+        }
+
+        ttks.sort((a,b)=>a-b);
+        shotsArr.sort((a,b)=>a-b);
+        reloadsArr.sort((a,b)=>a-b);
+        reloadTimeArr.sort((a,b)=>a-b);
+        fireTimeArr.sort((a,b)=>a-b);
+
+        const cl = confidence ?? 0.95;
+        const z = zForCL(cl);
+
+        const ttk_mean = mean(ttks);
+        const ttk_sd = stddev(ttks, ttk_mean);
+        const ttk_se = ttk_sd / Math.sqrt(ttks.length);
+        const ttk_mean_ci_low = ttk_mean - z * ttk_se;
+        const ttk_mean_ci_high = ttk_mean + z * ttk_se;
+
+        const ttk_p50 = percentile(ttks, 0.50);
+        const ttk_p95 = percentile(ttks, 0.95);
+        const [ttk_p50_ci_low, ttk_p50_ci_high] = quantileCI(ttks, 0.50, z);
+        const [ttk_p95_ci_low, ttk_p95_ci_high] = quantileCI(ttks, 0.95, z);
+        const ttk_ci_half = (ttk_p50_ci_high - ttk_p50_ci_low) / 2;
+        const ttk_ci_rel = ttk_p50 ? (ttk_ci_half / ttk_p50) : NaN;
+
+        const sShots_mean = shotsSum / trials;
+        const sShots_std = stddev(shotsArr, sShots_mean);
+        const sShots_half = ciHalfFallback(sShots_std, trials, cl);
+
+        const sRel_mean = reloadsSum / trials;
+        const sRel_std = stddev(reloadsArr, sRel_mean);
+        const sRel_half = ciHalfFallback(sRel_std, trials, cl);
+
+        const sRTime_mean = mean(reloadTimeArr);
+        const sRTime_std = stddev(reloadTimeArr, sRTime_mean);
+        const sRTime_half = ciHalfFallback(sRTime_std, trials, cl);
+
+        const sFire_mean = mean(fireTimeArr);
+        const sFire_std = stddev(fireTimeArr, sFire_mean);
+        const sFire_half = ciHalfFallback(sFire_std, trials, cl);
+
+        const shots_p50 = percentile(shotsArr, 0.50);
+        const [shots_p50_ci_low, shots_p50_ci_high] = quantileCI(shotsArr, 0.50, z);
+
+        const reloads_p50 = percentile(reloadsArr, 0.50);
+        const [reloads_p50_ci_low, reloads_p50_ci_high] = quantileCI(reloadsArr, 0.50, z);
+
+        const reload_time_p50 = percentile(reloadTimeArr, 0.50);
+        const [reload_time_p50_ci_low, reload_time_p50_ci_high] = quantileCI(reloadTimeArr, 0.50, z);
+
+        const fire_time_p50 = percentile(fireTimeArr, 0.50);
+        const [fire_time_p50_ci_low, fire_time_p50_ci_high] = quantileCI(fireTimeArr, 0.50, z);
+
+        rows.push({
+          weapon: cfg.weapon,
+          tier: cfg.tier,
+          attachments: cfg.attachments,
+
+          accuracy_profile: "CustomSim",
+          acc_body: nBody, acc_head: nHead, acc_limbs: nLimbs,
+          miss: pMiss,
+
+          target: targetName,
+          ci_level: cl,
+
+          ttk_mean,
+          ttk_mean_ci_low,
+          ttk_mean_ci_high,
+          ttk_p50,
+          ttk_p50_ci_low,
+          ttk_p50_ci_high,
+          ttk_std: ttk_sd,
+          ttk_std_pct: (ttk_mean > 0 ? (ttk_sd / ttk_mean) : null),
+
+          shots_mean: sShots_mean,
+          shots_std: sShots_std,
+          shots_ci_half: sShots_half,
+          reloads_mean: sRel_mean,
+          reloads_std: sRel_std,
+          reloads_ci_half: sRel_half,
+          reload_time_mean: sRTime_mean,
+          reload_time_std: sRTime_std,
+          reload_time_ci_half: sRTime_half,
+          fire_time_mean: sFire_mean,
+          fire_time_std: sFire_std,
+          fire_time_ci_half: sFire_half,
+
+          shots_p50,
+          shots_p50_ci_low,
+          shots_p50_ci_high,
+          reloads_p50,
+          reloads_p50_ci_low,
+          reloads_p50_ci_high,
+          reload_time_p50,
+          reload_time_p50_ci_low,
+          reload_time_p50_ci_high,
+          fire_time_p50,
+          fire_time_p50_ci_low,
+          fire_time_p50_ci_high,
+
+          damage_per_bullet: cfg.stats.damage_per_bullet,
+          fire_rate_bps: cfg.stats.fire_rate_bps,
+          mag_size: cfg.stats.mag_size,
+          reload_time_s: cfg.stats.reload_time_s,
+          reload_amount: cfg.stats.reload_amount,
+          headshot_mult: cfg.stats.headshot_mult,
+          limbs_mult: cfg.stats.limbs_mult,
+        });
+
+        done++;
+        if (done % 10 === 0) self.postMessage({ type:"PROGRESS", done, total });
       }
-
-      ttks.sort((a,b)=>a-b);
-      shotsArr.sort((a,b)=>a-b);
-      reloadsArr.sort((a,b)=>a-b);
-      reloadTimeArr.sort((a,b)=>a-b);
-      fireTimeArr.sort((a,b)=>a-b);
-      const cl = confidence ?? 0.95;
-      const z = zForCL(cl);
-
-      const ttk_mean = mean(ttks);
-      const ttk_sd = stddev(ttks, ttk_mean);
-      const ttk_se = ttk_sd / Math.sqrt(ttks.length);
-      const ttk_mean_ci_low = ttk_mean - z * ttk_se;
-      const ttk_mean_ci_high = ttk_mean + z * ttk_se;
-
-      const ttk_p50 = percentile(ttks, 0.50);
-      const ttk_p95 = percentile(ttks, 0.95);
-      const [ttk_p50_ci_low, ttk_p50_ci_high] = quantileCI(ttks, 0.50, z);
-      const [ttk_p95_ci_low, ttk_p95_ci_high] = quantileCI(ttks, 0.95, z);
-      const ttk_ci_half = (ttk_p50_ci_high - ttk_p50_ci_low) / 2;
-      const ttk_ci_rel = ttk_p50 ? (ttk_ci_half / ttk_p50) : NaN;
-
-      const sShots_mean = shotsSum / trials;
-      const sShots_std = stddev(shotsArr, sShots_mean);
-      const sShots_half = ciHalfFallback(sShots_std, trials, cl);
-
-      const sRel_mean = reloadsSum / trials;
-      const sRel_std = stddev(reloadsArr, sRel_mean);
-      const sRel_half = ciHalfFallback(sRel_std, trials, cl);
-
-      const sRTime_mean = mean(reloadTimeArr);
-      const sRTime_std = stddev(reloadTimeArr, sRTime_mean);
-      const sRTime_half = ciHalfFallback(sRTime_std, trials, cl);
-
-      const sFire_mean = mean(fireTimeArr);
-      const sFire_std = stddev(fireTimeArr, sFire_mean);
-      const sFire_half = ciHalfFallback(sFire_std, trials, cl);
-
-      const shots_p50 = percentile(shotsArr, 0.50);
-      const [shots_p50_ci_low, shots_p50_ci_high] = quantileCI(shotsArr, 0.50, z);
-
-      const reloads_p50 = percentile(reloadsArr, 0.50);
-      const [reloads_p50_ci_low, reloads_p50_ci_high] = quantileCI(reloadsArr, 0.50, z);
-
-      const reload_time_p50 = percentile(reloadTimeArr, 0.50);
-      const [reload_time_p50_ci_low, reload_time_p50_ci_high] = quantileCI(reloadTimeArr, 0.50, z);
-
-      const fire_time_p50 = percentile(fireTimeArr, 0.50);
-      const [fire_time_p50_ci_low, fire_time_p50_ci_high] = quantileCI(fireTimeArr, 0.50, z);
-
-      rows.push({
-        weapon: cfg.weapon,
-        tier: cfg.tier,
-        attachments: cfg.attachments,
-
-        accuracy_profile: "CustomSim",
-        acc_body: nBody, acc_head: nHead, acc_limbs: nLimbs,
-        miss: pMiss,
-        target,
-
-        ci_level: cl,
-
-        ttk_mean,
-        ttk_mean_ci_low,
-        ttk_mean_ci_high,
-
-        ttk_p50,
-        ttk_p50_ci_low,
-        ttk_p50_ci_high,
-
-        ttk_std: ttk_sd,
-        ttk_std_pct: (ttk_mean > 0 ? (ttk_sd / ttk_mean) : null),
-
-        ttk_p95,
-        ttk_p95_ci_low,
-        ttk_p95_ci_high,
-
-        ttk_ci_half,
-        ttk_ci_rel,
-
-        // per-metric stats (mean/std/mean-CI)
-        n_trials: trials,
-        ttk_std: ttk_sd,
-        ttk_std_pct: (ttk_mean > 0 ? (ttk_sd / ttk_mean) : null),
-
-        shots_mean: sShots_mean,
-        shots_std: sShots_std,
-        shots_mean_ci_low: sShots_mean - sShots_half,
-        shots_mean_ci_high: sShots_mean + sShots_half,
-        shots_p50,
-        shots_p50_ci_low,
-        shots_p50_ci_high,
-
-        reloads_mean: sRel_mean,
-        reloads_std: sRel_std,
-        reloads_mean_ci_low: sRel_mean - sRel_half,
-        reloads_mean_ci_high: sRel_mean + sRel_half,
-        reloads_p50,
-        reloads_p50_ci_low,
-        reloads_p50_ci_high,
-
-        reload_time_mean: sRTime_mean,
-        reload_time_std: sRTime_std,
-        reload_time_mean_ci_low: sRTime_mean - sRTime_half,
-        reload_time_mean_ci_high: sRTime_mean + sRTime_half,
-        reload_time_p50,
-        reload_time_p50_ci_low,
-        reload_time_p50_ci_high,
-
-        fire_time_mean: sFire_mean,
-        fire_time_std: sFire_std,
-        fire_time_mean_ci_low: sFire_mean - sFire_half,
-        fire_time_mean_ci_high: sFire_mean + sFire_half,
-        fire_time_p50,
-        fire_time_p50_ci_low,
-        fire_time_p50_ci_high,
-
-        damage_per_bullet: cfg.stats.damage_per_bullet,
-        fire_rate_bps: cfg.stats.fire_rate_bps,
-        mag_size: cfg.stats.mag_size,
-        reload_time_s: cfg.stats.reload_time_s,
-        reload_amount: cfg.stats.reload_amount,
-        headshot_mult: cfg.stats.headshot_mult,
-        limbs_mult: cfg.stats.limbs_mult,
-      });
-
-      done++;
-      if(done % 10 === 0) self.postMessage({ type:"PROGRESS", done, total });
     }
 
     self.postMessage({ type:"DONE", rows });

@@ -66,27 +66,28 @@
         <div class="row2">
           <div>
             <label class="label">Trials</label>
-            <input id="trials" type="number" min="100" step="100" value="5000" />
+            <input id="trials" type="number" min="100" step="100" value="1000" />
           </div>
           <div>
             <label class="label">Seed</label>
             <input id="seed" type="number" min="0" step="1" value="1337" />
           </div>
+          <div>
+            <label class="label">CI</label>
+            <select id="confidence">
+              <option value="0.90">90%</option>
+              <option value="0.95" selected>95%</option>
+              <option value="0.99">99%</option>
+            </select>
+          </div>
         </div>
 
-        <label class="label">Confidence level</label>
-        <select id="confidence">
-          <option value="0.90">90%</option>
-          <option value="0.95" selected>95%</option>
-          <option value="0.99">99%</option>
-        </select>
-
         <button id="runBtn">Start simulation</button>
+        <div class="hint" id="status"></div>
         <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
           <button id="editWeaponsBtn" class="ghost" type="button">Edit weapons.json</button>
           <span id="weaponsOverrideCue" class="hint" style="display:none;">Override active</span>
         </div>
-        <div class="hint" id="status"></div>
 
         <button id="downloadBtn" class="ghost" disabled>Download current rows (.json)</button>
       </div>
