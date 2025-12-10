@@ -412,6 +412,7 @@ function collectUIState(){
     graphOrderBy: uiState.graphOrderBy || "ttk",
     ttkScaleMax: uiState.ttkScaleMax,
     compareScaleMax: uiState.compareScaleMax,
+    compareTierValues: uiState.compareTierValues || "best",
     sortKey,
     sortDir,
   };
@@ -825,6 +826,8 @@ function render(){
   const mSel = document.getElementById("compareMode");
   const tCtl = document.getElementById("compareTierCtl");
   const tSel = document.getElementById("compareTier");
+  const vCtl = document.getElementById("compareTierValuesCtl");
+  const vSel = document.getElementById("compareTierValues");
 
   if (compareCard) compareCard.style.display = "";
 
@@ -836,6 +839,7 @@ function render(){
 
   fillSelectOptions(wSel, weaponsAvail.map(w => ({value:w, label:w})), uiState.compareWeapon);
   mSel.value = uiState.compareMode;
+  if (vSel) vSel.value = uiState.compareTierValues || "best";
 
   // tiers from data (rowsCompare)
   const tiersAvailAll = [...new Set(rowsCompare.map(r => Number(r.tier)))]
@@ -853,6 +857,7 @@ function render(){
 
   const mode = uiState.compareMode;
   tCtl.style.display = (mode === "attachments") ? "" : "none";
+  if (vCtl) vCtl.style.display = (mode === "tier") ? "" : "none";
 
   const W = uiState.compareWeapon;
 
@@ -860,7 +865,10 @@ function render(){
   if (mode === "tier"){
     // For each available tier of the weapon, pick the BEST (min mean TTK) setup for that tier
     for (const t of tiersAvailWeapon){
-      const cand = rowsCompare.filter(r => r.weapon === W && Number(r.tier) === t);
+      let cand = rowsCompare.filter(r => r.weapon === W && Number(r.tier) === t);
+      if ((uiState.compareTierValues || "best") === "base"){
+        cand = cand.filter(r => (r.attachments === "none" || !r.attachments));
+      }
       if (!cand.length) continue;
       let best = cand[0];
       for (const r of cand){
@@ -876,7 +884,9 @@ function render(){
         mean: M.mean(best),
         p50: M.p50(best),
         sd:   M.sd(best),
-        detail: (best.attachments || "none") + " · (best setup)",
+        detail: ((uiState.compareTierValues || "best") === "base")
+                  ? (best.attachments || "none") + " · (base)"
+                  : (best.attachments || "none") + " · (best setup)",
         barColor: rarityColor(rarityOf(W)),
         labelColor: rarityColor(rarityOf(W)),
         _order: Number(O.mean(best))
@@ -888,7 +898,7 @@ function render(){
     const scaleRows = currentRows.filter(r => r.weapon === W);
     const autoMaxHigh = maxWhiskerFromRows(scaleRows, M);
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
-      titleRight: `${W} · by tier · showing ${M.label}`,
+      titleRight: `${W} · by tier · ${((uiState.compareTierValues||"best")==="base")?"base only":"best attachments"} · showing ${M.label}`,
       unit: M.unit,
       tickDec: M.tickDec,
       valDec: M.valDec,
@@ -997,12 +1007,30 @@ function render(){
     tbody.appendChild(tr);
   }
 
-  // modal for variants
+  // Tooltip for variants (mouseover like chart tooltips)
+  let tip = document.getElementById("tableTooltip");
+  if (!tip){
+    tip = document.createElement("div");
+    tip.id = "tableTooltip";
+    tip.className = "chartTooltip";
+    tip.style.display = "none";
+    document.body.appendChild(tip);
+  }
   tbody.querySelectorAll(".variantLink").forEach(el => {
-    el.addEventListener("click", () => {
-      const v = JSON.parse(decodeURIComponent(el.dataset.variants));
-      openModal(v.join("\n"));
-    });
+    const variants = JSON.parse(decodeURIComponent(el.dataset.variants));
+    function showTip(ev){
+      tip.style.display = "block";
+      tip.innerHTML = `<div style=\"font-weight:600; margin-bottom:2px;\">Variants</div>` +
+                      variants.map(v => `<div>${escapeHtml(v || "none")}</div>`).join("");
+      const x = ev.clientX + 14; // follow cursor like chart tooltips
+      const y = ev.clientY - 10;
+      const vw = document.documentElement.clientWidth;
+      tip.style.left = `${Math.min(vw - 10, x)}px`;
+      tip.style.top  = `${Math.max(10, y)}px`;
+    }
+    el.addEventListener("mouseenter", showTip);
+    el.addEventListener("mousemove", showTip);
+    el.addEventListener("mouseleave", () => { tip.style.display = "none"; });
   });
 
   $("downloadBtn").disabled = !(currentRows && currentRows.length);
@@ -1150,6 +1178,7 @@ async function init(){
 
   if (st.graphMetric) uiState.graphMetric = st.graphMetric;
   if (st.graphOrderBy) uiState.graphOrderBy = st.graphOrderBy;
+  if (st.compareTierValues) uiState.compareTierValues = st.compareTierValues;
   if ($("graphMetric")) $("graphMetric").value = uiState.graphMetric || "ttk";
   if ($("graphOrderBy")) $("graphOrderBy").value = uiState.graphOrderBy || "ttk";
 
@@ -1457,6 +1486,7 @@ let chartState = { items: [], hitIndex: -1 };
 uiState.compareWeapon = uiState.compareWeapon || "";
 uiState.compareMode = uiState.compareMode || "tier"; // 'tier' | 'attachments'
 uiState.compareTier = uiState.compareTier || 4;       // used when mode='attachments'
+uiState.compareTierValues = uiState.compareTierValues || "best"; // 'best' | 'base'
 uiState.graphMetric = uiState.graphMetric || "ttk";
 uiState.graphOrderBy = uiState.graphOrderBy || "ttk";
 if (uiState.ttkScaleMax === undefined) uiState.ttkScaleMax = null;
@@ -1528,12 +1558,14 @@ function initCompareControls(){
   const wSel = document.getElementById("compareWeapon");
   const mSel = document.getElementById("compareMode");
   const tSel = document.getElementById("compareTier");
+  const vSel = document.getElementById("compareTierValues");
   if (!wSel || wSel._bound) return;
   wSel._bound = true;
 
   wSel.addEventListener("change", () => { uiState.compareWeapon = wSel.value; render(); });
   if (mSel) mSel.addEventListener("change", () => { uiState.compareMode = mSel.value; render(); });
   if (tSel) tSel.addEventListener("change", () => { uiState.compareTier = parseInt(tSel.value, 10); render(); });
+  if (vSel) vSel.addEventListener("change", () => { uiState.compareTierValues = vSel.value; render(); });
 }
 
 function fillSelectOptions(selectEl, values, current){
