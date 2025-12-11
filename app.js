@@ -1868,6 +1868,10 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
   const textColor = getThemeColor("--text", "#e9eef5");
   const subColor  = "rgba(255,255,255,0.65)";
   const gridColor = "rgba(255,255,255,0.08)";
+  const unit = opts.unit ?? "s";
+  const valueDec = opts.valueDec ?? 3;
+  const gapNameVal = 8;
+  const gapValBar = 8;
 
   const maxHigh = Math.max(...items.map(it => {
     const mu = Number(it.mean);
@@ -1883,27 +1887,32 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
       ? opts.maxScale
       : (autoHigh * 1.02);
 
-  // Compute dynamic left padding based on label widths so bars don't overlap labels
+  // Compute dynamic left padding based on label and value widths
   ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   const labelMax = opts.labelMax ?? 28;
   let maxLabelW = 0;
+  let maxValueW = 0;
   for (const it of items){
     const s = shortenLabel(it.label, labelMax);
     const w = ctx.measureText(s).width;
     if (w > maxLabelW) maxLabelW = w;
+
+    const valText = `${Number(it.mean).toFixed(valueDec)}${unit}`;
+    const vw = ctx.measureText(valText).width;
+    if (vw > maxValueW) maxValueW = vw;
   }
-  const left = Math.max(opts.left ?? 140, 10 + maxLabelW + 10);
+  const minLeft = 10 + maxLabelW + gapNameVal + maxValueW + gapValBar;
+  const left = Math.max(opts.left ?? 140, minLeft);
   const innerW = Math.max(10, cssW - left - right);
 
-  // grid + ticks (0..maxScale) with nice snapping
+  // grid + ticks (0..maxScale) with nice snapping and labels for majors + minors
   ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.fillStyle = subColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
   const manualMax = Number.isFinite(opts.maxScale) && opts.maxScale > 0;
-  const majorStep = niceStep(maxScale, opts.majorTicks ?? 4);
-  const minor = opts.minorTicks ?? 3;
+  let majorStep = niceStep(maxScale, opts.majorTicks ?? 4);
+  const minorPerMajor = opts.minorTicks ?? 3;
 
   // Snap auto scale to a nice multiple (manual max stays exact)
   if (!manualMax && Number.isFinite(maxScale) && maxScale > 0 && Number.isFinite(majorStep) && majorStep > 0){
@@ -1911,56 +1920,55 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
   }
 
   const tickY = 14 + headerH/2;
-  const unit = opts.unit ?? "s";
   const tickDec = opts.tickDec ?? 2;
+  const minorGridColor = "rgba(255,255,255,0.04)";
 
-  // ---- minor gridlines (no labels) ----
-  if (minor > 0 && Number.isFinite(majorStep) && majorStep > 0){
-    const minorStep = majorStep / (minor + 1);
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
-    for (let v = 0; v + majorStep <= maxScale + 1e-12; v += majorStep){
-      for (let j = 1; j <= minor; j++){
-        const vv = v + j * minorStep;
-        const x = left + (vv / maxScale) * innerW;
-        ctx.beginPath();
-        ctx.moveTo(x, top - 6);
-        ctx.lineTo(x, finalH - 12);
-        ctx.stroke();
+  // Build arrays of major and minor ticks
+  const majors = [];
+  const minors = [];
+  const eps = 1e-9;
+  const majorCount = Math.max(1, Math.round(maxScale / Math.max(majorStep, eps)));
+  for (let i = 0; i <= majorCount; i++){
+    const v = Math.min(maxScale, i * majorStep);
+    if (v >= 0 - eps && v <= maxScale + eps) majors.push(v);
+  }
+  if (minorPerMajor > 0 && Number.isFinite(majorStep) && majorStep > 0){
+    const mStep = majorStep / (minorPerMajor + 1);
+    for (let m = 0; m < majors.length; m++){
+      const v0 = majors[m];
+      const v1 = (m + 1 < majors.length) ? majors[m+1] : maxScale;
+      for (let j = 1; j <= minorPerMajor; j++){
+        const vv = v0 + j * mStep;
+        if (vv > v0 + eps && vv < v1 - eps && vv <= maxScale + eps){
+          minors.push(vv);
+        }
       }
     }
   }
 
-  // ---- major gridlines + labels ----
-  ctx.strokeStyle = gridColor;
-  for (let v = 0; v <= maxScale + 1e-12; v += majorStep){
-    const x = left + (v / maxScale) * innerW;
+  // Merge and draw
+  const allTicks = [...majors, ...minors].sort((a,b)=>a-b);
+  let lastLabelX = -Infinity;
+  const minLabelSpacing = 36; // px
 
+  allTicks.forEach((v) => {
+    const x = left + (v / maxScale) * innerW;
+    const isMajor = majors.includes(v);
+
+    ctx.strokeStyle = isMajor ? gridColor : minorGridColor;
+    ctx.lineWidth = isMajor ? 1.0 : 0.8;
     ctx.beginPath();
     ctx.moveTo(x, top - 6);
     ctx.lineTo(x, finalH - 12);
     ctx.stroke();
 
-    const label = `${v.toFixed(tickDec)}${unit}`;
-    const pad = 6;
-    const xText = (v + majorStep > maxScale + 1e-12) ? (x - pad) : x;
-    ctx.fillText(label, xText, tickY);
-  }
-
-  // If manual max doesn't land on a major tick, draw final labeled line at maxScale
-  if (manualMax && Number.isFinite(majorStep) && majorStep > 0){
-    const eps = 1e-9;
-    const rem = Math.abs((maxScale / majorStep) - Math.round(maxScale / majorStep));
-    if (rem > eps){
-      const x = left + innerW;
-      ctx.strokeStyle = gridColor;
-      ctx.beginPath();
-      ctx.moveTo(x, top - 6);
-      ctx.lineTo(x, finalH - 12);
-      ctx.stroke();
-
-      ctx.fillText(`${maxScale.toFixed(tickDec)}${unit}`, x - 6, tickY);
+    if (x - lastLabelX >= minLabelSpacing){
+      ctx.fillStyle = isMajor ? subColor : "rgba(255,255,255,0.55)";
+      const label = `${v.toFixed(tickDec)}${unit}`;
+      ctx.fillText(label, x, tickY);
+      lastLabelX = x;
     }
-  }
+  })
 
   // bars + markers
   ctx.textAlign = "left";
@@ -2025,10 +2033,12 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
       ctx.stroke();
     }
 
-    // right value
-    ctx.fillStyle = textColor;
+    // value label (mean) between name and bar, on the left side
+    ctx.fillStyle = subColor;
     ctx.textAlign = "right";
-    ctx.fillText(`${it.mean.toFixed(opts.valDec ?? 3)}${opts.unit ?? "s"}`, left + innerW, y + barH/2);
+    const valText = `${Number(it.mean).toFixed(valueDec)}${unit}`;
+    const valueX = left - gapValBar;
+    ctx.fillText(valText, valueX, y + barH/2);
     ctx.textAlign = "left";
   }
 
