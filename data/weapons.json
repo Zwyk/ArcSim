@@ -11,7 +11,8 @@
   },
   {
     "name": "Anvil Splitter",
-    "damage": 48.0,
+    "damage": 16.0,
+    "nb_bullets": 3,
     "fire_rate": 0.67,
     "mag_size": 6,
     "reload_time_s": 0.84,
@@ -77,7 +78,8 @@
   },
   {
     "name": "Vulcano",
-    "damage": 49.5,
+    "damage": 5.5,
+    "nb_bullets": 9,
     "fire_rate": 1.93,
     "mag_size": 4,
     "reload_time_s": 3.5,
@@ -137,10 +139,11 @@
   },
   {
     "name": "Venator",
-    "damage": 18.0,
+    "damage": 9.0,
     "fire_rate": 3.51,
     "mag_size": 10,
     "reload_time_s": 3.55,
+    "nb_bullets": 2,
     "tier_mods": {
       "fire_rate_pct": [
         13.0,
@@ -192,7 +195,8 @@
   },
   {
     "name": "Il Toro",
-    "damage": 67.5,
+    "damage": 7.5,
+    "nb_bullets": 9,
     "fire_rate": 0.68,
     "mag_size": 5,
     "reload_time_s": 0.41625,
@@ -229,7 +233,9 @@
   {
     "name": "Arpeggio",
     "damage": 9.5,
-    "fire_rate": 4.81,
+    "nb_bullets": 3,
+    "burst_delay": 0.1,
+    "fire_rate": 1.3,
     "mag_size": 24,
     "reload_time_s": 4.0,
     "tier_mods": {

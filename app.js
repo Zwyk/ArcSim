@@ -452,16 +452,27 @@ function tableTTK(r){
 
 function tableShots(r){
   const mode = tableCenterMode();
+
+  const shotsMean = Number(r.shots_mean);
+  const shotsP50  = Number(r.shots_p50);
+
+  const btkMean   = Number(r.bullets_to_kill_mean);
+  const btk       = Number(r.bullets_to_kill);
+
+  const detShots  = Number(r.shots); // deterministic fallback
+
   if (mode === "mean"){
-    if (Number.isFinite(r.shots_mean)) return r.shots_mean;
-    if (Number.isFinite(r.bullets_to_kill_mean)) return r.bullets_to_kill_mean;
-    if (Number.isFinite(r.bullets_to_kill)) return r.bullets_to_kill;
-    if (Number.isFinite(r.shots_p50)) return r.shots_p50;
+    if (Number.isFinite(shotsMean)) return shotsMean;
+    if (Number.isFinite(btkMean))   return btkMean;
+    if (Number.isFinite(btk))       return btk;
+    if (Number.isFinite(shotsP50))  return shotsP50;
+    if (Number.isFinite(detShots))  return detShots;
   } else {
-    if (Number.isFinite(r.shots_p50)) return r.shots_p50;
-    if (Number.isFinite(r.bullets_to_kill)) return r.bullets_to_kill;
-    if (Number.isFinite(r.shots_mean)) return r.shots_mean;
-    if (Number.isFinite(r.bullets_to_kill_mean)) return r.bullets_to_kill_mean;
+    if (Number.isFinite(shotsP50))  return shotsP50;
+    if (Number.isFinite(btk))       return btk;
+    if (Number.isFinite(shotsMean)) return shotsMean;
+    if (Number.isFinite(btkMean))   return btkMean;
+    if (Number.isFinite(detShots))  return detShots;
   }
   return NaN;
 }
@@ -879,17 +890,20 @@ function render(){
       const M = getMetricDef(uiState.graphMetric || "ttk");
       const orderKey = uiState.graphOrderBy || "ttk";
       const O = getMetricDef(orderKey);
+      const stats = extractMetricStats(best, uiState.graphMetric || "ttk");
+      if (!stats) continue;
+      const { mean, median, sd } = stats;
       items.push({
         label: `Tier ${t}`,
-        mean: M.mean(best),
-        p50: M.p50(best),
-        sd:   M.sd(best),
+        mean,
+        p50: median,
+        sd,
         detail: ((uiState.compareTierValues || "best") === "base")
                   ? (best.attachments || "none") + " · (base)"
                   : (best.attachments || "none") + " · (best setup)",
         barColor: rarityColor(rarityOf(W)),
         labelColor: rarityColor(rarityOf(W)),
-        _order: Number(O.mean(best))
+        _order: Number(extractMetricStats(best, orderKey)?.mean)
       });
     }
     // Order bars by selected ordering metric (ascending)
@@ -920,18 +934,21 @@ function render(){
     items = top.map(r => {
       const rar = attachmentsRarity(r.attachments || "none");
       const col = rarityColor(rar);
+      const stats = extractMetricStats(r, uiState.graphMetric || "ttk");
+      if (!stats) return null;
+      const { mean, median, sd } = stats;
 
       return {
         label: r.attachments || "none",
-        mean: M.mean(r),
-        p50: M.p50(r),
-        sd:  M.sd(r),
+        mean,
+        p50: median,
+        sd,
         detail: `Tier ${t}`,
         barColor: col,
         labelColor: col,
-        _order: Number(O.mean(r))
+        _order: Number(extractMetricStats(r, orderKey)?.mean)
       };
-    });
+    }).filter(Boolean);
 
     // Order bars by selected ordering metric (ascending)
     items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
@@ -1492,41 +1509,77 @@ uiState.graphOrderBy = uiState.graphOrderBy || "ttk";
 if (uiState.ttkScaleMax === undefined) uiState.ttkScaleMax = null;
 if (uiState.compareScaleMax === undefined) uiState.compareScaleMax = null;
 
-// Metric definitions for charts
+// Metric definitions for charts (mean + median support)
 const METRIC_DEF = {
-  ttk:        { label: "TTK",         unit: "s", tickDec: 2, valDec: 3,
-                mean: r => Number.isFinite(r.ttk_mean) ? r.ttk_mean : (Number.isFinite(r.ttk_s) ? r.ttk_s : metricTTK(r)),
-                sd:   r => Number(r.ttk_std),
-                p50:  r => Number(r.ttk_p50) },
-
-  shots:      { label: "Shots",       unit: "",  tickDec: 1, valDec: 2,
-                mean: r => Number.isFinite(r.shots_mean) ? r.shots_mean : (Number.isFinite(r.bullets_to_kill) ? r.bullets_to_kill : NaN),
-                sd:   r => Number(r.shots_std),
-                p50:  r => NaN },
-
-  fire_time:  { label: "Fire time",   unit: "s", tickDec: 2, valDec: 3,
-                mean: r => Number.isFinite(r.fire_time_mean) ? r.fire_time_mean : fireTimeSpent(r),
-                sd:   r => Number(r.fire_time_std),
-                p50:  r => NaN },
-
-  reloads:    { label: "Reloads",     unit: "",  tickDec: 2, valDec: 2,
-                mean: r => Number.isFinite(r.reloads_mean) ? r.reloads_mean : (Number.isFinite(r.reloads) ? r.reloads : NaN),
-                sd:   r => Number(r.reloads_std),
-                p50:  r => NaN },
-
-  reload_time:{ label: "Reload time", unit: "s", tickDec: 2, valDec: 3,
-                mean: r => Number.isFinite(r.reload_time_mean) ? r.reload_time_mean : reloadTimeSpent(r),
-                sd:   r => Number(r.reload_time_std),
-                p50:  r => NaN },
+  ttk: {
+    key: "ttk",
+    label: "TTK",
+    unit: "s",
+    tickDec: 2,
+    valDec: 3,
+    meanField: "ttk_mean",
+    p50Field: "ttk_p50",
+    stdField: "ttk_std",
+    ciLowField: "ttk_mean_ci_low",
+    ciHighField: "ttk_mean_ci_high",
+  },
+  shots: {
+    key: "shots",
+    label: "Shots",
+    unit: "",
+    tickDec: 1,
+    valDec: 2,
+    meanField: "shots_mean",
+    p50Field: "shots_p50",
+    stdField: "shots_std",
+    ciLowField: "shots_mean_ci_low",
+    ciHighField: "shots_mean_ci_high",
+  },
+  fire_time: {
+    key: "fire_time",
+    label: "Fire time",
+    unit: "s",
+    tickDec: 2,
+    valDec: 3,
+    meanField: "fire_time_mean",
+    p50Field: "fire_time_p50",
+    stdField: "fire_time_std",
+    ciLowField: "fire_time_mean_ci_low",
+    ciHighField: "fire_time_mean_ci_high",
+  },
+  reloads: {
+    key: "reloads",
+    label: "Reloads",
+    unit: "",
+    tickDec: 2,
+    valDec: 2,
+    meanField: "reloads_mean",
+    p50Field: "reloads_p50",
+    stdField: "reloads_std",
+    ciLowField: "reloads_mean_ci_low",
+    ciHighField: "reloads_mean_ci_high",
+  },
+  reload_time: {
+    key: "reload_time",
+    label: "Reload time",
+    unit: "s",
+    tickDec: 2,
+    valDec: 3,
+    meanField: "reload_time_mean",
+    p50Field: "reload_time_p50",
+    stdField: "reload_time_std",
+    ciLowField: "reload_time_mean_ci_low",
+    ciHighField: "reload_time_mean_ci_high",
+  },
 };
 
 // Compute the maximum "whisker" (mean + sd) across a set of rows for a given metric
 function maxWhiskerFromRows(rows, M){
   let maxHi = 0;
   for (const r of (rows || [])){
-    const mu = Number(M.mean(r));
+    const mu = Number(extractMetricStats(r, M.key)?.mean);
     if (!Number.isFinite(mu)) continue;
-    const sd = Number(M.sd(r));
+    const sd = Number(extractMetricStats(r, M.key)?.sd);
     const hi = Number.isFinite(sd) ? (mu + sd) : mu;
     if (hi > maxHi) maxHi = hi;
   }
@@ -1551,6 +1604,43 @@ function niceStep(range, targetMajors = 4){
 
 function getMetricDef(key){
   return METRIC_DEF[key] || METRIC_DEF.ttk;
+}
+
+function extractMetricStats(row, metricKey) {
+  const def = METRIC_DEF[metricKey];
+  if (!def) return null;
+
+  let mean = Number(row[def.meanField]);
+  if (!Number.isFinite(mean)) mean = null;
+  if (mean == null) {
+    // Fallbacks for deterministic-only fields
+    if (metricKey === "ttk") mean = Number.isFinite(row.ttk_s) ? row.ttk_s : metricTTK(row);
+    else if (metricKey === "shots"){
+      const btk = Number(row.bullets_to_kill);
+      const det = Number(row.shots);
+      mean = Number.isFinite(btk) ? btk : (Number.isFinite(det) ? det : undefined);
+    }
+    else if (metricKey === "fire_time") mean = fireTimeSpent(row);
+    else if (metricKey === "reload_time") mean = reloadTimeSpent(row);
+    else if (metricKey === "reloads") mean = Number.isFinite(row.reloads) ? row.reloads : undefined;
+  }
+  if (mean == null) return null;
+
+  const median = (def.p50Field && row[def.p50Field] != null)
+    ? row[def.p50Field]
+    : mean;
+
+  const ciLow = (def.ciLowField && row[def.ciLowField] != null)
+    ? row[def.ciLowField]
+    : mean;
+
+  const ciHigh = (def.ciHighField && row[def.ciHighField] != null)
+    ? row[def.ciHighField]
+    : mean;
+
+  const sd = def.stdField ? row[def.stdField] : undefined;
+
+  return { mean, median, ciLow, ciHigh, sd };
 }
 
 // Compare chart controls binding
@@ -1782,22 +1872,26 @@ function drawBestPerWeaponChart(rowsFiltered){
   const bestRows = [...bestByWeapon.values()];
   // Order bars by selected ordering metric (ascending)
   const orderKey = uiState.graphOrderBy || "ttk";
-  const O = getMetricDef(orderKey);
   bestRows.sort((a,b)=>{
-    const av = Number(O.mean(a));
-    const bv = Number(O.mean(b));
+    const av = Number(extractMetricStats(a, orderKey)?.mean);
+    const bv = Number(extractMetricStats(b, orderKey)?.mean);
     return (Number.isFinite(av) ? av : Infinity) - (Number.isFinite(bv) ? bv : Infinity);
   });
 
-  const items = bestRows.map(r => ({
-    label: `${r.weapon} ${tierRoman(r.tier)}${(r.attachments && r.attachments !== "none") ? " (+)" : ""}`,
-    mean: M.mean(r),
-    sd:   M.sd(r),
-    p50:  M.p50(r),
-    labelColor: rarityColor(rarityOf(r.weapon)),
-    barColor: rarityColor(rarityOf(r.weapon)),
-    detail: `Tier ${r.tier} · ${(r.attachments || "none")}`,
-  })).filter(it => Number.isFinite(it.mean));
+  const items = bestRows.map(r => {
+    const stats = extractMetricStats(r, metricKey);
+    if (!stats) return null;
+    const { mean, median, sd } = stats;
+    return {
+      label: `${r.weapon} ${tierRoman(r.tier)}${(r.attachments && r.attachments !== "none") ? " (+)" : ""}`,
+      mean,
+      sd,
+      p50: median,
+      labelColor: rarityColor(rarityOf(r.weapon)),
+      barColor: rarityColor(rarityOf(r.weapon)),
+      detail: `Tier ${r.tier} · ${(r.attachments || "none")}`,
+    };
+  }).filter(it => it && Number.isFinite(it.mean));
 
   const autoMaxHigh = maxWhiskerFromRows(currentRows, M);
   drawHBarChart("ttkChart", "chartTooltip", "chartMeta", items, {

@@ -1,210 +1,55 @@
 // WebWorker: generates a custom preset by simulating all weapon/tier/attachment combos
 // using weapons.json + attachments.json.
+importScripts("sim_core.js");
 
-function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+const {
+  TARGETS,
+  clamp01,
+  mulberry32,
+  buildWeaponBase,
+  applyTierMods,
+  groupAttachmentsByWeapon,
+  combosForTypes,
+  applyAttachments,
+  shotsToKillTrial,
+  ttkAndReloadsFromShots,
+  percentile
+} = self.SimCore;
 
-// mulberry32 PRNG (seeded)
-function mulberry32(a){
-  return function(){
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
+
+// Shared helper: apply one bullet to the target state
+// state: { hp, sh, dr }
+// zone: 'miss' | 'body' | 'head' | 'limbs'
+function applyMultiBulletShot(stats, state, zone){
+  if(zone === 'miss') return;
+  let mult = 1.0;
+  if(zone === 'head') mult = stats.headshot_mult;
+  else if(zone === 'limbs') mult = stats.limbs_mult;
+  // body stays 1.0
+  const dmgPerBullet = stats.damage_per_bullet * mult;
+  if(state.sh > 0){
+    state.sh = Math.max(0, state.sh - dmgPerBullet);
+    state.hp -= dmgPerBullet * (1 - state.dr);
+  } else {
+    state.hp -= dmgPerBullet;
+  }
 }
 
-const TARGETS = {
-  "NoShield": { hp:100, shield:0,  dr:0.0 },
-  "Light":    { hp:100, shield:40, dr:0.4 },
-  "Medium":   { hp:100, shield:70, dr:0.425 },
-  "Heavy":    { hp:100, shield:80, dr:0.525 },
-};
-
-function applyTierMods(base, tier){
-  // tier=1 => no mod, tier=2 => index0, tier=3 => index1, tier=4 => index2
-  const idx = tier - 2;
-  const out = { ...base };
-
-  if(idx < 0) return out;
-
-  const tm = base.tier_mods || {};
-  // fire_rate_pct: [10,20,30] means +10%/+20%/+30%
-  if(Array.isArray(tm.fire_rate_pct) && tm.fire_rate_pct[idx] != null){
-    out.fire_rate_bps *= (1 + (tm.fire_rate_pct[idx] / 100));
-  }
-
-  // reload_time_reduction_pct: reduces reload time
-  if(Array.isArray(tm.reload_time_reduction_pct) && tm.reload_time_reduction_pct[idx] != null){
-    out.reload_time_s *= (1 - (tm.reload_time_reduction_pct[idx] / 100));
-  }
-
-  // mag_add: adds mag size
-  if(Array.isArray(tm.mag_add) && tm.mag_add[idx] != null){
-    out.mag_size += tm.mag_add[idx];
-  }
-
-  return out;
-}
-
-function buildWeaponBase(w){
-  return {
-    weapon: w.name,
-    damage_per_bullet: w.damage,
-    fire_rate_bps: w.fire_rate,
-    mag_size: w.mag_size,
-    reload_time_s: w.reload_time_s,
-    reload_amount: w.reload_amount ?? 0,
-    headshot_mult: w.headshot_mult ?? 2.0, // fallback
-    limbs_mult: w.limbs_mult ?? 0.75,
-    tier_mods: w.tier_mods || {},
-  };
-}
-
-function groupAttachmentsByWeapon(attachments){
-  const map = new Map(); // weapon -> type -> list
-  for(const a of attachments){
-    for(const w of (a.compatible || [])){
-      if(!map.has(w)) map.set(w, new Map());
-      const tmap = map.get(w);
-      const type = a.type || "misc";
-      if(!tmap.has(type)) tmap.set(type, []);
-      tmap.get(type).push(a);
-    }
-  }
-  return map;
-}
-
-function combosForTypes(typeMap){
-  // typeMap: Map(type -> list of attachments)
-  const types = [...typeMap.keys()].sort();
-  const lists = types.map(t => [{ name:"none", type:t, _none:true }, ...typeMap.get(t)]);
-  const out = [];
-
-  function rec(i, acc){
-    if(i === lists.length){
-      out.push(acc.slice());
-      return;
-    }
-    for(const item of lists[i]){
-      acc.push(item);
-      rec(i+1, acc);
-      acc.pop();
-    }
-  }
-  rec(0, []);
-  return out;
-}
-
-function applyAttachments(stats, combo){
-  const out = { ...stats };
-  const names = [];
-
-  for(const a of combo){
-    if(a._none) continue;
-    names.push(a.name);
-
-    if(a.mag_add != null) out.mag_size += a.mag_add;
-    if(a.fire_rate_mult != null) out.fire_rate_bps *= a.fire_rate_mult;
-
-    // leave room for future mods:
-    // if(a.reload_time_mult) out.reload_time_s *= a.reload_time_mult;
-    // if(a.damage_mult) out.damage_per_bullet *= a.damage_mult;
-  }
-
-  out.attachments = names.length ? names.join(" + ") : "none";
-  return out;
-}
-
-function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, pMiss, rng){
-  let hp = target.hp;
-  let sh = target.shield;
-  const dr = target.dr;
-
-  let shots = 0;
-
-  while(hp >= 1.0){
-    shots++;
-
-    if(rng() < pMiss){
-      if(shots > 200000) return Infinity;
-      continue;
-    }
-
+// Deterministic zone sequence generator, length `len`.
+// Emits array of zones using probabilities, stable for given rng.
+function makeZoneSequence(pBody, pHead, pLimbs, pMiss, len, rng){
+  const seq = new Array(len);
+  for(let i=0;i<len;i++){
+    const rMiss = rng();
+    if(rMiss < pMiss){ seq[i] = 'miss'; continue; }
     const r = rng();
-    let mult = 1.0;
-    if(r < pBody){
-      mult = 1.0;
-    } else if(r < pBody + pHead){
-      mult = stats.headshot_mult;
-    } else {
-      mult = stats.limbs_mult;
-    }
-
-    const dmg = stats.damage_per_bullet * mult;
-
-    if(sh > 0){
-      sh = Math.max(0, sh - dmg);       // full to shield
-      hp -= dmg * (1 - dr);            // mitigated to HP
-    } else {
-      hp -= dmg;                       // full to HP
-    }
-
-    if(shots > 200000) return Infinity;
+    if(r < pBody){ seq[i] = 'body'; }
+    else if(r < pBody + pHead){ seq[i] = 'head'; }
+    else { seq[i] = 'limbs'; }
   }
-
-  return shots;
+  return seq;
 }
 
-function ttkAndReloadsFromShots(shotsNeeded, stats){
-  if(!Number.isFinite(shotsNeeded)) return { ttk: NaN, reloads: NaN };
-
-  const magSize = stats.mag_size;
-  const fr = stats.fire_rate_bps;
-  const rt = stats.reload_time_s;
-  const ra = stats.reload_amount;
-
-  const shotInterval = fr > 0 ? (1 / fr) : 0;
-
-  let shotsDone = 0;
-  let mag = magSize;
-  let t = 0;
-  let reloads = 0;
-
-  while(shotsDone < shotsNeeded){
-    if(mag === 0){
-      const remaining = shotsNeeded - shotsDone;
-
-      if(ra <= 0){
-        reloads += 1;
-        t += rt;
-        mag = magSize;
-      } else {
-        const toLoad = Math.min(remaining, magSize);
-        const actions = Math.ceil(toLoad / ra);
-        reloads += actions;
-        t += actions * rt;
-        mag = Math.min(magSize, actions * ra);
-      }
-      continue;
-    }
-
-    shotsDone++;
-    mag--;
-
-    if(shotsDone >= shotsNeeded) break;
-
-    // No cadence wait around reload; only between shots while still in mag.
-    if(mag > 0 && shotInterval > 0) t += shotInterval;
-  }
-
-  return { ttk: t, reloads };
-}
-
-function percentile(sorted, p){
-  if(!sorted.length) return NaN;
-  const idx = Math.floor(p * (sorted.length - 1));
-  return sorted[idx];
-}
 
 function zForCL(cl){
   if (cl >= 0.99) return 2.575829; // 99%
@@ -332,20 +177,26 @@ self.onmessage = (ev) => {
         let reloadsSum = 0;
 
         for (let k = 0; k < trials; k++){
-          const shots = shotsToKillTrial(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, rng);
-          const tr = ttkAndReloadsFromShots(shots, cfg.stats);
+            const shotsInfo = shotsToKillTrial(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, rng);
+            const shots =
+              (typeof shotsInfo === "number")
+                ? shotsInfo
+                : (Number.isFinite(shotsInfo?.bullets_to_kill)
+                    ? shotsInfo.bullets_to_kill
+                    : (shotsInfo?.shots ?? NaN));
+            const tr = ttkAndReloadsFromShots(shotsInfo, cfg.stats);
           const ttkVal = tr.ttk;
           const rels = tr.reloads;
           const rTime = rels * cfg.stats.reload_time_s;
           const fTime = ttkVal - rTime;
 
           ttks[k] = ttkVal;
-          shotsArr[k] = shots;
+            shotsArr[k] = shots;
           reloadsArr[k] = rels;
           reloadTimeArr[k] = rTime;
           fireTimeArr[k] = fTime;
 
-          shotsSum += shots;
+            shotsSum += shots;
           reloadsSum += rels;
         }
 
