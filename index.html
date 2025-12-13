@@ -132,7 +132,7 @@
 
             <div class="chartControls">
               <label class="chartCtl">
-                <span>Max scale</span>
+                <span>Max scale (s)</span>
                 <input id="ttkScaleMax" class="chartScaleInput" type="number" min="0" step="0.01" placeholder="auto">
               </label>
             </div>
@@ -180,7 +180,7 @@
 
             <div class="chartControls">
               <label class="chartCtl">
-                <span>Max scale</span>
+                <span>Max scale (s)</span>
                 <input id="compareScaleMax" class="chartScaleInput" type="number" min="0" step="0.01" placeholder="auto">
               </label>
             </div>
@@ -201,14 +201,9 @@
             </select>
           </label>
 
-          <label class="check" style="display:flex; align-items:center; gap:6px;">
-            <input id="stackEq" type="checkbox" checked />
-            <span>Merge equivalent attachments results (same TKK)</span>
-          </label>
-
           <label class="chartCtl">
-            <span>Merge tolerance (seconds)</span>
-            <input id="stackTol" type="number" min="0" step="0.000001" value="0.000001" />
+            <span>Merge attachments tolerance (s)</span>
+            <input id="stackTol" class="chartScaleInput" type="number" min="0" step="0.000001" placeholder="0">
           </label>
         </div>
 

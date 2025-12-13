@@ -1007,10 +1007,9 @@ function render(){
       autoMaxHigh: autoMaxHigh2
     });
   }
-  const stackOn = $("stackEq").checked;
-  const tol = Math.max(0.0000001, +$("stackTol").value || 0.000001);
-
-  if(stackOn) rows = stackEquivalent(rows, tol);
+  const tolRaw = +($("stackTol").value || 0);
+  const tol = Math.max(0, tolRaw);
+  if (tol > 0) rows = stackEquivalent(rows, tol);
 
   rows.sort((a,b)=> compare(getCellValue(a, sortKey), getCellValue(b, sortKey), sortDir));
   const shown = rows;
@@ -1158,7 +1157,6 @@ async function init(){
     render();
   });
   $("baseOnly").addEventListener("change", render);
-  $("stackEq").addEventListener("change", render);
   $("stackTol").addEventListener("input", render);
   $("confidence").addEventListener("change", ()=>{
     render();
@@ -1252,7 +1250,7 @@ async function init(){
   if (st.stackTol != null) $("stackTol").value = st.stackTol;
   if (st.baseOnly != null) $("baseOnly").checked = !!st.baseOnly;
   else $("baseOnly").checked = true; // default: Base only on
-  if (st.stackEq != null) $("stackEq").checked = !!st.stackEq;
+  // stackEq checkbox removed; merging controlled by stackTol > 0
   if (st.tableCenter && $("tableCenter")) $("tableCenter").value = st.tableCenter;
   if (st.sortKey) sortKey = st.sortKey;
   if (st.sortDir) sortDir = st.sortDir;
@@ -1273,7 +1271,7 @@ async function init(){
 
   // Wire saving after restore
   [
-    "presetSelect","targetSelect","stackEq","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax"
+    "presetSelect","targetSelect","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax"
   ].forEach(id => {
     const el = $(id);
     if (!el) return;
@@ -1310,7 +1308,7 @@ async function init(){
 
   // Save on changes
   [
-    "presetSelect","targetSelect","stackEq","stackTol","baseOnly","tableCenter"
+    "presetSelect","targetSelect","stackTol","baseOnly","tableCenter"
   ].forEach(id => {
     const el = $(id);
     if (!el) return;
