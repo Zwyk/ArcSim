@@ -1329,6 +1329,21 @@ async function init(){
     if (btn) btn.textContent = open ? "✕" : "☰";
   }
 
+  // Show the toggle only when it has an effect (mobile widths)
+  function updateSidebarToggleVisibility(){
+    const btn = document.getElementById("sidebarToggleBtn");
+    if (!btn) return;
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    btn.style.display = isMobile ? '' : 'none';
+    btn.setAttribute('aria-hidden', isMobile ? 'false' : 'true');
+    if (!isMobile){
+      document.body.classList.remove('sidebar-open');
+      btn.textContent = '☰';
+    }
+  }
+  updateSidebarToggleVisibility();
+  window.addEventListener('resize', updateSidebarToggleVisibility);
+
   sidebarBtn?.addEventListener("click", () => {
     setSidebarOpen(!document.body.classList.contains("sidebar-open"));
   });
