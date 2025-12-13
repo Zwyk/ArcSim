@@ -33,13 +33,7 @@
           Base only (no attachments)
         </label>
 
-        <label class="check">
-          <input id="stackEq" type="checkbox" checked />
-          Merge equivalent attachments results (same TKK)
-        </label>
-
-        <label class="label">Merge tolerance (seconds)</label>
-        <input id="stackTol" type="number" min="0" step="0.000001" value="0.000001" />
+        
       </div>
 
       <div class="panel">
@@ -198,13 +192,25 @@
           </div>
         </div>
 
-        <label class="chartCtl">
-          <span>Table values</span>
-          <select id="tableCenter">
-            <option value="mean" selected>Mean</option>
-            <option value="median">Median</option>
-          </select>
-        </label>
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin:8px 0;">
+          <label class="chartCtl">
+            <span>Table values</span>
+            <select id="tableCenter">
+              <option value="mean" selected>Mean</option>
+              <option value="median">Median</option>
+            </select>
+          </label>
+
+          <label class="check" style="display:flex; align-items:center; gap:6px;">
+            <input id="stackEq" type="checkbox" checked />
+            <span>Merge equivalent attachments results (same TKK)</span>
+          </label>
+
+          <label class="chartCtl">
+            <span>Merge tolerance (seconds)</span>
+            <input id="stackTol" type="number" min="0" step="0.000001" value="0.000001" />
+          </label>
+        </div>
 
         <table>
           <thead>
@@ -249,7 +255,7 @@ You can also see and edit them temporarily by pressing the "edit weapons.json" b
 2025-12-12
     - Fixed shotguns bullets calculation (was one big pellet instead of multiple small ones)
     - Added burst firing support to Arpeggio (was steady fire rate)
-    - Improvements to the graphs UI
+    - Improvements to the UI
 
 2025-09-12: 
     - Initial release
