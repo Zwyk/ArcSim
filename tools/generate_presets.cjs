@@ -54,7 +54,7 @@ const {
 
 // --------- helpers ---------
 function parseArgs(argv){
-  const out = { trials: 100000, confidence: 0.95, seed: 1337 };
+  const out = { trials: 500000, confidence: 0.95, seed: 1337 };
   for (let i = 2; i < argv.length; i++){
     const a = argv[i];
     const [k, vRaw] = a.includes("=") ? a.split("=", 2) : [a, argv[i+1]];
@@ -69,7 +69,7 @@ function parseArgs(argv){
 
 const OPT = parseArgs(process.argv);
 console.log("Preset generation options:", OPT);
-const PRECOMP_TRIALS = 100000;
+const PRECOMP_TRIALS = 500000;
 const PRECOMP_CI = OPT.confidence ?? 0.95;
 function meanCIFromSd(mu, sd, n, z){
   const se = sd / Math.sqrt(n);
