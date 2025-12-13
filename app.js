@@ -1319,25 +1319,24 @@ async function init(){
   // Worker for custom simulation
   worker = new Worker("sim.worker.js");
 
-  // Sidebar toggle behavior
-  const toggleBtn = document.getElementById("sidebarToggleBtn");
-  const backdrop = document.getElementById("sidebarBackdrop");
+  // Sidebar toggle behavior (mobile drawer)
+  const sidebarBtn = document.getElementById("sidebarToggleBtn");
+  const sidebarBackdrop = document.getElementById("sidebarBackdrop");
 
-  function setSidebarCollapsed(collapsed){
-    document.body.classList.toggle("sidebar-collapsed", collapsed);
-    try{ localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); }catch(e){}
+  function setSidebarOpen(open){
+    document.body.classList.toggle("sidebar-open", !!open);
+    const btn = document.getElementById("sidebarToggleBtn");
+    if (btn) btn.textContent = open ? "✕" : "☰";
   }
 
-  setSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "1");
-
-  toggleBtn?.addEventListener("click", () => {
-    setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
+  sidebarBtn?.addEventListener("click", () => {
+    setSidebarOpen(!document.body.classList.contains("sidebar-open"));
   });
 
-  backdrop?.addEventListener("click", () => setSidebarCollapsed(true));
+  sidebarBackdrop?.addEventListener("click", () => setSidebarOpen(false));
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setSidebarCollapsed(true);
+    if (e.key === "Escape") setSidebarOpen(false);
   });
   worker.onmessage = (ev) => {
     const msg = ev.data;

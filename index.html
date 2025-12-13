@@ -91,7 +91,7 @@
     <main class="main">
       <div class="header">
         <div class="headerLeft">
-          <button id="sidebarToggleBtn" class="ghost iconBtn" type="button" title="Toggle sidebar">☰</button>
+          <button id="sidebarToggleBtn" class="ghost iconBtn sidebarToggle" type="button" title="Menu">☰</button>
           <div>
             <div class="h1" id="heading">Fastest setups</div>
             <div class="hint" id="subheading"></div>
@@ -211,21 +211,24 @@
           </label>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th class="sortable" data-sort="weapon">weapon</th>
-              <th class="sortable num" data-sort="tier">tier</th>
-              <th class="sortable" data-sort="attachments">attachments</th>
-              <th class="sortable num" data-sort="ttk">ttk</th>
-              <th class="sortable num" data-sort="shots">shots</th>
-              <th class="sortable num" data-sort="fire_time">fire time</th>
-              <th class="sortable num" data-sort="reloads">reloads</th>
-              <th class="sortable num" data-sort="reload_time">reload time</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
+        <div class="tableHint">Swipe horizontally to see more →</div>
+        <div class="tableScroller">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="weapon">weapon</th>
+                <th class="sortable num" data-sort="tier">tier</th>
+                <th class="sortable" data-sort="attachments">attachments</th>
+                <th class="sortable num" data-sort="ttk">ttk</th>
+                <th class="sortable num" data-sort="shots">shots</th>
+                <th class="sortable num" data-sort="fire_time">fire time</th>
+                <th class="sortable num" data-sort="reloads">reloads</th>
+                <th class="sortable num" data-sort="reload_time">reload time</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
       </div>
     </main>
   </div>
@@ -255,7 +258,7 @@ You can also see and edit them temporarily by pressing the "edit weapons.json" b
     - Fixed shotguns bullets calculation (was one big pellet instead of multiple small ones)
     - Added burst firing support to Arpeggio (was steady fire rate)
     - Fixed some values in weapons and shields
-    - Improvements to the UI
+    - Improvements to the UI, including mobile support
 
 2025-09-12: 
     - Initial release

@@ -1,3 +1,53 @@
+/* Mobile menu toggle (☰ / ✕) – make it always readable */
+#sidebarToggleBtn{
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+  line-height: 1;
+
+  color: var(--text);
+  background: rgba(10, 14, 20, 0.72);
+  border: 1px solid rgba(255,255,255,0.14);
+
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  backdrop-filter: blur(8px);
+}
+
+#sidebarToggleBtn:hover{
+  background: rgba(10, 14, 20, 0.85);
+  border-color: rgba(255,255,255,0.22);
+}
+
+#sidebarToggleBtn:active{
+  transform: translateY(1px);
+}
+
+#sidebarToggleBtn:focus-visible{
+  outline: 2px solid rgba(255,255,255,0.45);
+  outline-offset: 2px;
+}
+/* Header left group (button + title) */
+.headerLeft{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+
+/* Hidden by default on desktop */
+.sidebarToggle{ display:none; }
+
+/* Backdrop (off by default) */
+.sidebarBackdrop{
+  display:none;
+}
+
+/* Better viewport height on mobile browsers handled in main .app block */
 :root{
   --bg:#0b0f14;
   --panel:#101824;
@@ -26,6 +76,7 @@ body{
   display:grid;
   grid-template-columns: 320px 1fr;
   height:100vh;
+  height:100dvh; /* override on mobile for better viewport units */
 }
 
 .sidebar{
@@ -158,6 +209,61 @@ table{
   width:100%;
   border-collapse:collapse;
   font-size:13px;
+}
+
+/* Horizontal scroll wrapper and hint for the results table */
+.tableHint{
+  display:none;
+  font-size:12px;
+  color:var(--muted);
+  margin: 6px 4px 8px;
+}
+
+.tableScroller{
+  overflow-x:auto;
+  overflow-y:visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
+  border-radius: 12px;
+  position: relative; /* helps sticky layers behave predictably */
+}
+
+.tableScroller table{
+  min-width: 900px;
+}
+
+.tableScroller th,
+.tableScroller td{
+  white-space: nowrap;
+}
+
+.tableScroller td:first-child{ /* weapon */
+  white-space: normal;
+  min-width: 140px;
+}
+.tableScroller td:nth-child(3){ /* attachments */
+  white-space: normal;
+  min-width: 180px;
+}
+
+@media (max-width: 600px){
+  .tableHint{ display:block; }
+}
+
+/* Sticky first column inside horizontally scrollable table */
+.tableScroller th:first-child,
+.tableScroller td:first-child{
+  position: sticky;
+  left: 0;
+  z-index: 3;                /* above other cells */
+  background: var(--panel2);  /* opaque to avoid bleed */
+  box-shadow: 8px 0 12px rgba(0,0,0,0.28);
+}
+
+/* Header cell should be above body sticky cells */
+.tableScroller thead th:first-child{
+  z-index: 5;
+  background: rgba(12,16,22,.92); /* match thead background */
 }
 
 thead th{
@@ -387,80 +493,84 @@ th.sortable:hover{
   align-items:flex-start;
 }
 
-/* Sidebar collapsed (works on desktop + mobile overlay) */
-body.sidebar-collapsed .app{
-  grid-template-columns: 0 1fr;
-}
-body.sidebar-collapsed .sidebar{
-  width:0;
-  padding:0;
-  border-right:none;
-  overflow:hidden;
-}
+/* Removed conflicting mobile drawer rules that used sidebar-collapsed */
 
-/* Mobile layout */
+/* ===== Mobile drawer sidebar (single source of truth) ===== */
 @media (max-width: 900px){
+
+  :root{ --drawer-w: min(340px, 92vw); }
+
+  /* Don’t reserve a left column on mobile */
   .app{
     grid-template-columns: 1fr;
   }
 
-  /* Sidebar becomes a drawer */
+  /* Make sure main fills the whole width */
+  .main{
+    padding: 14px;
+    padding-top: 56px; /* space for the fixed ☰/✕ button */
+    overflow: auto;
+  }
+
+  /* Show the toggle button on mobile */
+  .sidebarToggle{
+    display: inline-flex;
+  }
+
+  /* Keep the toggle button always clickable (even when sidebar is open) */
+  #sidebarToggleBtn{
+    position: fixed;
+    top: 12px;
+    left: 12px;                 /* ☰ position when closed */
+    z-index: 2105;
+    transition: left .18s ease;  /* slide with drawer */
+  }
+
+  body.sidebar-open #sidebarToggleBtn{
+    left: min(calc(var(--drawer-w) + 12px), calc(100vw - 52px));
+  }
+
+  /* Sidebar becomes an off-canvas drawer */
   .sidebar{
-    position:fixed;
-    top:0; left:0; bottom:0;
-    width:min(320px, 92vw);
-    z-index:2000;
-    transform: translateX(0);
-    transition: transform .18s ease;
-    box-shadow: 0 0 0 1px var(--border), 0 12px 40px rgba(0,0,0,.45);
-  }
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
 
-  /* Hidden state on mobile */
-  body.sidebar-collapsed .sidebar{
+    width: var(--drawer-w);
+    z-index: 2100;
+
     transform: translateX(-105%);
-    width:min(320px, 92vw); /* keep width for transform logic */
-    padding:18px;
-    border-right:1px solid var(--border);
-    overflow:auto;
+    transition: transform .18s ease;
+    overflow: auto;
+
+    border-right: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,.03), transparent 30%), var(--bg);
   }
 
-  /* Main content uses full width */
-  .main{ padding:14px; }
+  body.sidebar-open .sidebar{
+    transform: translateX(0);
+  }
 
-  /* Header stacks better */
-  .header{ flex-direction:column; align-items:stretch; }
-  .stats{ justify-content:space-between; }
-
-  /* Controls become full width */
-  .row2{ grid-template-columns: 1fr; }
-  .chartGlobalControls{ flex-wrap:wrap; }
-  .chartControls{ flex-wrap:wrap; }
-  .chartCtl select, .chartCtl input{ width:100%; max-width:100%; }
-
-  /* Table can scroll horizontally */
-  .tableWrap{ overflow:auto; }
-  table{ min-width: 900px; }
-}
-
-/* Backdrop */
-.sidebarBackdrop{
-  display:none;
-}
-
-@media (max-width: 900px){
+  /* Backdrop only active when open */
   .sidebarBackdrop{
-    position:fixed;
-    inset:0;
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 2090;
     background: rgba(0,0,0,.45);
-    z-index:1990;
-    display:block;
-    opacity:1;
+    opacity: 0;
+    pointer-events: none;
     transition: opacity .18s ease;
   }
 
-  /* If sidebar is collapsed/hidden, hide backdrop */
-  body.sidebar-collapsed .sidebarBackdrop{
-    opacity:0;
-    pointer-events:none;
+  body.sidebar-open .sidebarBackdrop{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Prevent the page behind from scrolling when the drawer is open */
+  body.sidebar-open{
+    overflow: hidden;
   }
 }
