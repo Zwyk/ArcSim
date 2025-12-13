@@ -379,3 +379,88 @@ th.sortable:hover{
   gap: 12px;
   margin: 0 0 10px 0;
 }
+
+/* Header row with toggle button */
+.headerLeft{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+
+/* Sidebar collapsed (works on desktop + mobile overlay) */
+body.sidebar-collapsed .app{
+  grid-template-columns: 0 1fr;
+}
+body.sidebar-collapsed .sidebar{
+  width:0;
+  padding:0;
+  border-right:none;
+  overflow:hidden;
+}
+
+/* Mobile layout */
+@media (max-width: 900px){
+  .app{
+    grid-template-columns: 1fr;
+  }
+
+  /* Sidebar becomes a drawer */
+  .sidebar{
+    position:fixed;
+    top:0; left:0; bottom:0;
+    width:min(320px, 92vw);
+    z-index:2000;
+    transform: translateX(0);
+    transition: transform .18s ease;
+    box-shadow: 0 0 0 1px var(--border), 0 12px 40px rgba(0,0,0,.45);
+  }
+
+  /* Hidden state on mobile */
+  body.sidebar-collapsed .sidebar{
+    transform: translateX(-105%);
+    width:min(320px, 92vw); /* keep width for transform logic */
+    padding:18px;
+    border-right:1px solid var(--border);
+    overflow:auto;
+  }
+
+  /* Main content uses full width */
+  .main{ padding:14px; }
+
+  /* Header stacks better */
+  .header{ flex-direction:column; align-items:stretch; }
+  .stats{ justify-content:space-between; }
+
+  /* Controls become full width */
+  .row2{ grid-template-columns: 1fr; }
+  .chartGlobalControls{ flex-wrap:wrap; }
+  .chartControls{ flex-wrap:wrap; }
+  .chartCtl select, .chartCtl input{ width:100%; max-width:100%; }
+
+  /* Table can scroll horizontally */
+  .tableWrap{ overflow:auto; }
+  table{ min-width: 900px; }
+}
+
+/* Backdrop */
+.sidebarBackdrop{
+  display:none;
+}
+
+@media (max-width: 900px){
+  .sidebarBackdrop{
+    position:fixed;
+    inset:0;
+    background: rgba(0,0,0,.45);
+    z-index:1990;
+    display:block;
+    opacity:1;
+    transition: opacity .18s ease;
+  }
+
+  /* If sidebar is collapsed/hidden, hide backdrop */
+  body.sidebar-collapsed .sidebarBackdrop{
+    opacity:0;
+    pointer-events:none;
+  }
+}

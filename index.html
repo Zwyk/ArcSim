@@ -86,12 +86,16 @@
         <button id="downloadBtn" class="ghost" disabled>Download current rows (.json)</button>
       </div>
     </aside>
+    <div id="sidebarBackdrop" class="sidebarBackdrop" aria-hidden="true"></div>
 
     <main class="main">
       <div class="header">
-        <div>
-          <div class="h1" id="heading">Fastest setups</div>
-          <div class="hint" id="subheading"></div>
+        <div class="headerLeft">
+          <button id="sidebarToggleBtn" class="ghost iconBtn" type="button" title="Toggle sidebar">☰</button>
+          <div>
+            <div class="h1" id="heading">Fastest setups</div>
+            <div class="hint" id="subheading"></div>
+          </div>
         </div>
         <div class="stats">
           <div class="stat"><div class="k" id="rowsCount">0</div><div class="v">rows</div></div>
@@ -250,6 +254,7 @@ You can also see and edit them temporarily by pressing the "edit weapons.json" b
 2025-12-12
     - Fixed shotguns bullets calculation (was one big pellet instead of multiple small ones)
     - Added burst firing support to Arpeggio (was steady fire rate)
+    - Fixed some values in weapons and shields
     - Improvements to the UI
 
 2025-09-12: 

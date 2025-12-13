@@ -1318,6 +1318,27 @@ async function init(){
 
   // Worker for custom simulation
   worker = new Worker("sim.worker.js");
+
+  // Sidebar toggle behavior
+  const toggleBtn = document.getElementById("sidebarToggleBtn");
+  const backdrop = document.getElementById("sidebarBackdrop");
+
+  function setSidebarCollapsed(collapsed){
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    try{ localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); }catch(e){}
+  }
+
+  setSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "1");
+
+  toggleBtn?.addEventListener("click", () => {
+    setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
+  });
+
+  backdrop?.addEventListener("click", () => setSidebarCollapsed(true));
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setSidebarCollapsed(true);
+  });
   worker.onmessage = (ev) => {
     const msg = ev.data;
     if(msg.type === "PROGRESS"){
