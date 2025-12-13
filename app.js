@@ -3,6 +3,43 @@ const $ = (id) => document.getElementById(id);
 const PATH_PRESETS = "data/presets/";
 const FILE_WEAPONS = "data/weapons.json";
 const FILE_ATTACH = "data/attachments.json";
+const FILE_SHIELDS = "data/shields.json";
+
+// Shields normalization and globals
+let SHIELDS = null;          // map id -> {name,hp,shield,dr,label}
+let SHIELD_ORDER = [];       // ordered ids
+
+function normalizeShields(json){
+  if (Array.isArray(json)){
+    const map = {};
+    const order = [];
+    for (const s of json){
+      const id = s?.id || s?.name;
+      if (!id) continue;
+      order.push(id);
+      map[id] = {
+        name: id,
+        label: s.label || id,
+        hp: +s.hp,
+        shield: +s.shield,
+        dr: +s.dr,
+      };
+    }
+    return { map, order };
+  }
+  // object format fallback
+  const map = {};
+  const order = Object.keys(json || {});
+  for (const id of order){
+    const s = json[id];
+    map[id] = { name:id, label: s?.label || s?.name || id, hp:+s?.hp, shield:+s?.shield, dr:+s?.dr };
+  }
+  return { map, order };
+}
+
+function shieldLabel(id){
+  return (SHIELDS && SHIELDS[id] && SHIELDS[id].label) ? SHIELDS[id].label : id;
+}
 
 const RARITY = {
   Legendary: ["Jupiter","Equalizer","Anvil Splitter","Aphelion"],
@@ -112,7 +149,7 @@ function setSelectOptions(selectEl, values, preferredValue) {
   ]);
   const isTargetSelect = (selectEl && selectEl.id === "targetSelect");
   selectEl.innerHTML = values.map(v => {
-    const label = isTargetSelect ? (labelMap.get(v) || v) : v;
+    const label = isTargetSelect ? shieldLabel(v) : v;
     return `<option value="${v}">${label}</option>`;
   }).join("");
   if (values.includes(cur)) selectEl.value = cur;
@@ -120,7 +157,9 @@ function setSelectOptions(selectEl, values, preferredValue) {
 }
 
 function ensureTargetTierOptions(rows){
-  const DEFAULT_TARGETS = ["NoShield","Light","Medium","Heavy"];
+  const DEFAULT_TARGETS = (SHIELD_ORDER && SHIELD_ORDER.length)
+    ? SHIELD_ORDER
+    : ["NoShield","Light","Medium","Heavy"];
   const DEFAULT_TIERS = [1,2,3,4];
   const rawTargets = (rows && rows.length) ? Array.from(new Set(rows.map(r=> r.target))) : DEFAULT_TARGETS;
   const orderIdx = new Map(DEFAULT_TARGETS.map((t,i)=>[t,i]));
@@ -177,7 +216,9 @@ function ensureTierCheckboxes(tiers){
 }
 
 function syncTargetTierFromRows(rows){
-  const DEFAULT_TARGETS = ["NoShield","Light","Medium","Heavy"];
+  const DEFAULT_TARGETS = (SHIELD_ORDER && SHIELD_ORDER.length)
+    ? SHIELD_ORDER
+    : ["NoShield","Light","Medium","Heavy"];
   const orderIdx = new Map(DEFAULT_TARGETS.map((t,i)=>[t,i]));
   const targets = [...new Set(rows.map(r => r.target))].sort((a,b)=> (orderIdx.get(a) ?? 999) - (orderIdx.get(b) ?? 999));
   const tiers = [...new Set(rows.map(r => +r.tier))].sort((a,b)=>a-b);
@@ -1085,6 +1126,15 @@ $("downloadBtn").addEventListener("click", downloadCurrent);
 async function init(){
   // Load preset manifest and populate preset selector
   presetManifest = await fetchJSON(PATH_PRESETS + "presets.json");
+  // Load shields for labels/order
+  try{
+    const { map, order } = normalizeShields(await fetchJSON(FILE_SHIELDS));
+    SHIELDS = map;
+    SHIELD_ORDER = order;
+  }catch(e){
+    SHIELDS = null;
+    SHIELD_ORDER = ["NoShield","Light","Medium","Heavy"];
+  }
   const presetSelect = $("presetSelect");
   presetSelect.innerHTML = "";
   const presetById = new Map(presetManifest.map(p => [p.id, p]));
@@ -1350,7 +1400,7 @@ async function runCustomSim(){
     const seed = (+$("seed").value || 1337) >>> 0;
     const confidence = parseFloat($("confidence").value || "0.95");
 
-    const params = { target: "ALL", tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence };
+    const params = { target: "ALL", tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence, fullSweep: true };
     lastCustomParams = { body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), tiers, trials, confidence };
 
     const key = cacheKey(params);
@@ -1369,12 +1419,17 @@ async function runCustomSim(){
     }
 
     setStatus("Loading weapon data…");
-    const [weaponsDefault, attachments] = await Promise.all([fetchJSON(FILE_WEAPONS), fetchJSON(FILE_ATTACH)]);
+    const [weaponsDefault, attachments, shieldsRaw] = await Promise.all([
+      fetchJSON(FILE_WEAPONS),
+      fetchJSON(FILE_ATTACH),
+      fetchJSON(FILE_SHIELDS),
+    ]);
+    const { map: shields } = normalizeShields(shieldsRaw);
     const weapons = getWeaponsOverride() || weaponsDefault;
 
     setStatus("Simulating…");
     pendingSimCacheKey = key;
-    worker.postMessage({ type:"RUN_SIM", weapons, attachments, params });
+    worker.postMessage({ type:"RUN_SIM", weapons, attachments, shields, params });
 
   }catch(e){
     setStatus(String(e?.message || e));

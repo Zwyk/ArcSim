@@ -14,8 +14,25 @@ const attachments = JSON.parse(
 );
 const SimCore = require("../sim_core.js");
 
+// Load shields
+const shieldsRaw = JSON.parse(
+  fs.readFileSync(path.join(ROOT, "data/shields.json"), "utf8")
+);
+function normalizeShields(json){
+  if (Array.isArray(json)){
+    const map = {};
+    for (const s of json){
+      const id = s?.id || s?.name;
+      if (!id) continue;
+      map[id] = { name:id, hp:+s.hp, shield:+s.shield, dr:+s.dr, label:s.label || id };
+    }
+    return map;
+  }
+  return json || {};
+}
+const TARGETS = normalizeShields(shieldsRaw);
+
 const {
-  TARGETS,
   clamp01,
   mulberry32,
   buildWeaponBase,

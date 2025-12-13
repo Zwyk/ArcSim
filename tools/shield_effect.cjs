@@ -25,7 +25,21 @@ if (!fs.existsSync(presetsMetaPath)) {
 const presetsMeta = JSON.parse(fs.readFileSync(presetsMetaPath, "utf8"));
 const PRESETS = presetsMeta.filter(p => p.kind === "precomputed");
 
-const TARGETS = ["NoShield", "Light", "Medium", "Heavy"];
+// Load shields.json for ordering
+const shieldsPath = path.join(ROOT, "data", "shields.json");
+let TARGETS = ["NoShield", "Light", "Medium", "Heavy"];
+if (fs.existsSync(shieldsPath)){
+  try{
+    const raw = JSON.parse(fs.readFileSync(shieldsPath, "utf8"));
+    if (Array.isArray(raw)){
+      TARGETS = raw.map(s => s.id || s.name).filter(Boolean);
+    } else {
+      TARGETS = Object.keys(raw || {});
+    }
+  }catch(e){
+    // keep default order on error
+  }
+}
 
 function getTTK(row) {
   if (typeof row.ttk_mean === "number") return row.ttk_mean;

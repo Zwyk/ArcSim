@@ -73,17 +73,23 @@
   function applyTierMods(base, tier){
     const out = { ...base, tier };
     const tm = base.tier_mods || {};
-    const idx = (tier|0) - 1;
+    const idx = (tier|0) - 2; // Tier II->0, Tier III->1, Tier IV->2
 
-    if (idx < 0) return out;
+    if (idx < 0) return out;  // Tier I: no tier mods
 
-    // reload time reduction (percent)
+    // reload time reduction (percent) — clamp to avoid negatives
     if (Array.isArray(tm.reload_time_reduction_pct) && tm.reload_time_reduction_pct[idx] != null){
-      out.reload_time_s *= (1 - (tm.reload_time_reduction_pct[idx] / 100));
+      const pct = Math.max(0, tm.reload_time_reduction_pct[idx]);
+      out.reload_time_s *= (1 - pct / 100);
     }
-    // mag add
+    // mag add — clamp to avoid accidental downgrades
     if (Array.isArray(tm.mag_add) && tm.mag_add[idx] != null){
-      out.mag_size += tm.mag_add[idx];
+      const add = Math.max(0, tm.mag_add[idx]);
+      out.mag_size += add;
+    }
+    // fire rate increase (percent)
+    if (Array.isArray(tm.fire_rate_pct) && tm.fire_rate_pct[idx] != null){
+      out.fire_rate_bps *= (1 + (tm.fire_rate_pct[idx] / 100));
     }
     // future-proof: could add more tier mods here
 

@@ -112,8 +112,9 @@ self.onmessage = (ev) => {
   if(msg.type !== "RUN_SIM") return;
 
   try{
-    const { weapons, attachments, params } = msg;
-    const { target, targets, tiers, body, head, limbs, miss, trials, seed, confidence } = params;
+    const { weapons, attachments, shields, params } = msg;
+    const { target, targets, tiers, body, head, limbs, miss, trials, seed, confidence, fullSweep } = params;
+    const doFullSweep = (fullSweep !== false);
 
     // Normalize accuracy inputs and miss rate
     const b = Number(body ?? 0);
@@ -126,7 +127,9 @@ self.onmessage = (ev) => {
     const pMiss = clamp01(Number(miss ?? 0));
 
     // Build configs across weapons, tiers, and attachment combos
-    const tierList = Array.isArray(tiers) && tiers.length ? tiers.map(Number) : [1,2,3,4];
+    const tierList = doFullSweep
+      ? [1,2,3,4]
+      : (Array.isArray(tiers) && tiers.length ? tiers.map(Number) : [1,2,3,4]);
     const attachMap = groupAttachmentsByWeapon(attachments || []);
     const configs = [];
 
@@ -147,12 +150,15 @@ self.onmessage = (ev) => {
     }
     // If target is "ALL" (or missing), simulate all shields.
     // You can also pass params.targets = ["NoShield","Light",...]
-    const targetList = Array.isArray(targets)
-      ? targets
-      : (target === "ALL" || target == null ? Object.keys(TARGETS) : [target]);
+    const targetsMap = shields || TARGETS;
+    const targetList = doFullSweep
+      ? Object.keys(targetsMap)
+      : (Array.isArray(targets)
+          ? targets
+          : (target === "ALL" || target == null ? Object.keys(targetsMap) : [target]));
 
     for (const tName of targetList){
-      if (!TARGETS[tName]) throw new Error(`Unknown target: ${tName}`);
+      if (!targetsMap[tName]) throw new Error(`Unknown target: ${tName}`);
     }
     const total = configs.length * targetList.length;
     const rows = [];
@@ -163,7 +169,7 @@ self.onmessage = (ev) => {
 
       for (let ti = 0; ti < targetList.length; ti++){
         const targetName = targetList[ti];
-        const tgt = TARGETS[targetName];
+        const tgt = targetsMap[targetName];
 
         // Different deterministic RNG stream per (config, target)
         const rng = mulberry32((seed + i*1013904223 + ti*374761393) >>> 0);
