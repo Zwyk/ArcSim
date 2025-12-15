@@ -79,7 +79,7 @@
         <button id="runBtn">Start simulation</button>
         <div class="hint" id="status"></div>
         <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-          <button id="editWeaponsBtn" class="ghost" type="button">Edit weapons.json</button>
+          <button id="editWeaponsBtn" class="ghost" type="button">Edit values</button>
           <span id="weaponsOverrideCue" class="hint" style="display:none;">Override active</span>
         </div>
 
@@ -254,11 +254,16 @@ Some weapons stats may be inaccurate (legendary weapons in particular), most not
 You can also see and edit them temporarily by pressing the "edit weapons.json" button down there before running a custom simulation, if you want to mess around or test values.
 
 <h3>Patch note</h3>
+2025-12-15
+    - Added json values override to Shields and Attachments 
+    - Fixed values in Weapons (Anvil Splitter) and Shields (Light, Heavy)
+    - Fixed damage to shield calculation (was applying the body part mod)
+
 2025-12-14
-    - Fixed shotguns bullets calculation (was one big pellet instead of multiple small ones)
-    - Added burst firing support to Arpeggio (was steady fire rate)
-    - Fixed some values in weapons and shields
     - Improvements to the UI, including mobile support
+    - Added burst firing support to Arpeggio (was steady fire rate)
+    - Added multiple bullets per shot support (Shotguns, Anvil Splitter, Venator)
+    - Adjusted values in Weapons to account for the new support
 
 2025-12-09: 
     - Initial release
@@ -274,10 +279,18 @@ You can also see and edit them temporarily by pressing the "edit weapons.json" b
     <div class="modalBox" style="max-width: 980px; width: 96%; padding: 18px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <div>
-          <div style="font-size:16px; font-weight:650;">Custom weapons.json (session only)</div>
+          <div style="font-size:16px; font-weight:650;">Edit values (session only)</div>
           <div style="font-size:12px; opacity:.75;">Used only for custom simulations. Refreshing the page resets unless you export/import.</div>
         </div>
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px;">
+            <span>File</span>
+            <select id="valuesFileSelect" style="padding:6px 10px; border-radius:10px; background:var(--panel2); border:1px solid var(--border); color:var(--text);">
+              <option value="weapons">weapons.json</option>
+              <option value="shields">shields.json</option>
+              <option value="attachments">attachments.json</option>
+            </select>
+          </label>
           <button id="validateWeaponsBtn" class="btn secondary" type="button">Validate</button>
           <button id="saveWeaponsBtn" class="btn" type="button">Save override</button>
           <button id="closeWeaponsModal" class="btn secondary" type="button">Close</button>
@@ -285,7 +298,6 @@ You can also see and edit them temporarily by pressing the "edit weapons.json" b
       </div>
 
       <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="loadWeaponsDefault" class="btn secondary" type="button">Load from data/weapons.json</button>
         <button id="resetWeaponsOverride" class="btn secondary" type="button">Reset override</button>
         <button id="downloadWeaponsOverride" class="btn secondary" type="button">Download JSON</button>
         <input id="importWeaponsOverride" type="file" accept="application/json" style="display:none;">

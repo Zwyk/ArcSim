@@ -250,10 +250,11 @@
         if (zone === "head")      mult = stats.headshot_mult;
         else if (zone === "limbs") mult = stats.limbs_mult;
 
-        const dmg = stats.damage_per_bullet * mult;
+        const baseDmg = stats.damage_per_bullet;
+        const dmg = baseDmg * mult;
 
         if (sh > 0){
-          sh = Math.max(0, sh - dmg);
+          sh = Math.max(0, sh - baseDmg);
           hp -= dmg * (1 - dr);
         } else {
           hp -= dmg;
