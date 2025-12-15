@@ -430,6 +430,11 @@ th.sortable:hover{
   flex-wrap:wrap;
 }
 
+.chartControlsLeft{
+  margin-top: 8px;
+  justify-content: flex-start;
+}
+
 .chartCtl{
   display:flex;
   flex-direction:column;

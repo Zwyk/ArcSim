@@ -573,6 +573,7 @@ function collectUIState(){
     graphOrderBy: uiState.graphOrderBy || "ttk",
     ttkScaleMax: uiState.ttkScaleMax,
     compareScaleMax: uiState.compareScaleMax,
+    tierTtkTol: uiState.tierTtkTol,
     compareTierValues: uiState.compareTierValues || "best",
     sortKey,
     sortDir,
@@ -1350,6 +1351,30 @@ async function init(){
     });
   }
 
+  // Tier tolerance input wiring
+  const tolIn = $("tierTtkTol");
+  if (tolIn){
+    tolIn.addEventListener("input", () => {
+      const raw = String(tolIn.value ?? "").trim();
+
+      // Empty field => revert to default
+      if (raw === ""){
+        uiState.tierTtkTol = 0.05;
+        scheduleSave();
+        render();
+        return;
+      }
+
+      const v = Number(raw);
+      if (Number.isFinite(v) && v >= 0){
+        uiState.tierTtkTol = v;
+        scheduleSave();
+        render();
+      }
+      // else: ignore invalid keystrokes (don’t overwrite state)
+    });
+  }
+
   // Default preset: Body only (explicit), else first precomputed
   const bodyOnly = presetManifest.find(p => p.id === "preset_body_only")?.id;
   const firstPrecomputed = presetManifest.find(p => p.kind === "precomputed")?.id;
@@ -1377,10 +1402,14 @@ async function init(){
 
   if (st.ttkScaleMax !== undefined) uiState.ttkScaleMax = st.ttkScaleMax;
   if (st.compareScaleMax !== undefined) uiState.compareScaleMax = st.compareScaleMax;
+  if (st.tierTtkTol !== undefined) uiState.tierTtkTol = Number(st.tierTtkTol);
+  if (!Number.isFinite(uiState.tierTtkTol) || uiState.tierTtkTol < 0) uiState.tierTtkTol = 0.05;
   const tInRestore = $("ttkScaleMax");
   if (tInRestore) tInRestore.value = (Number.isFinite(uiState.ttkScaleMax) && uiState.ttkScaleMax > 0) ? String(uiState.ttkScaleMax) : "";
   const cInRestore = $("compareScaleMax");
   if (cInRestore) cInRestore.value = (Number.isFinite(uiState.compareScaleMax) && uiState.compareScaleMax > 0) ? String(uiState.compareScaleMax) : "";
+  const tolInRestore = $("tierTtkTol");
+  if (tolInRestore) tolInRestore.value = String(uiState.tierTtkTol);
 
   if (st.presetFile) {
     const ok = [...$("presetSelect").options].some(o => o.value === st.presetFile);
@@ -1391,7 +1420,7 @@ async function init(){
 
   // Wire saving after restore
   [
-    "presetSelect","targetSelect","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax"
+    "presetSelect","targetSelect","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax","tierTtkTol"
   ].forEach(id => {
     const el = $(id);
     if (!el) return;
@@ -1789,6 +1818,7 @@ uiState.graphMetric = uiState.graphMetric || "ttk";
 uiState.graphOrderBy = uiState.graphOrderBy || "ttk";
 if (uiState.ttkScaleMax === undefined) uiState.ttkScaleMax = null;
 if (uiState.compareScaleMax === undefined) uiState.compareScaleMax = null;
+if (uiState.tierTtkTol === undefined) uiState.tierTtkTol = 0.05;
 
 // Metric definitions for charts (mean + median support)
 const METRIC_DEF = {
@@ -2139,38 +2169,69 @@ function drawTTKChart(rows){
 function drawBestPerWeaponChart(rowsFiltered){
   const metricKey = uiState.graphMetric || "ttk";
   const M = getMetricDef(metricKey);
+  const TIER_TTK_TOL = Number.isFinite(uiState.tierTtkTol) ? uiState.tierTtkTol : 0.05; // seconds
 
-  const bestByWeapon = new Map();
+  const byWeapon = new Map();
   for (const r of rowsFiltered){
-    const w = r.weapon;
-    const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
-    if (!Number.isFinite(t)) continue;
-    const cur = bestByWeapon.get(w);
-    const curT = cur ? (Number.isFinite(cur.ttk_mean) ? cur.ttk_mean : metricTTK(cur)) : Infinity;
-    if (!cur || t < curT) bestByWeapon.set(w, r);
+    if (!r || !r.weapon) continue;
+    let arr = byWeapon.get(r.weapon);
+    if (!arr) byWeapon.set(r.weapon, (arr = []));
+    arr.push(r);
   }
 
-  const bestRows = [...bestByWeapon.values()];
+  // For each weapon: best row per tier -> pick lowest tier among near-equal best TTK tiers
+  const bestRows = [];
+  for (const [w, arr] of byWeapon){
+    const bestByTier = new Map(); // tier -> row
+    for (const r of arr){
+      const tier = Number(r.tier) || 1;
+      const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      if (!Number.isFinite(t)) continue;
+
+      const cur = bestByTier.get(tier);
+      const curT = cur ? (Number.isFinite(cur.ttk_mean) ? cur.ttk_mean : metricTTK(cur)) : Infinity;
+      if (!cur || t < curT) bestByTier.set(tier, r);
+    }
+    if (!bestByTier.size) continue;
+
+    let bestTTK = Infinity;
+    for (const r of bestByTier.values()){
+      const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      if (t < bestTTK) bestTTK = t;
+    }
+
+    const closeTiers = [];
+    for (const [tier, r] of bestByTier.entries()){
+      const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      if (t <= bestTTK + TIER_TTK_TOL) closeTiers.push(tier);
+    }
+
+    closeTiers.sort((a,b)=>a-b);
+    const chosenTier = closeTiers[0];
+    const chosenRow = bestByTier.get(chosenTier);
+    bestRows.push({ row: chosenRow, tierPlus: closeTiers.length > 1 });
+  }
   // Order bars by selected ordering metric (ascending)
   const orderKey = uiState.graphOrderBy || "ttk";
   bestRows.sort((a,b)=>{
-    const av = Number(extractMetricStats(a, orderKey)?.mean);
-    const bv = Number(extractMetricStats(b, orderKey)?.mean);
+    const av = Number(extractMetricStats(a.row, orderKey)?.mean);
+    const bv = Number(extractMetricStats(b.row, orderKey)?.mean);
     return (Number.isFinite(av) ? av : Infinity) - (Number.isFinite(bv) ? bv : Infinity);
   });
 
-  const items = bestRows.map(r => {
+  const items = bestRows.map(({ row: r, tierPlus }) => {
     const stats = extractMetricStats(r, metricKey);
     if (!stats) return null;
     const { mean, median, sd } = stats;
+
     return {
-      label: `${r.weapon} ${tierRoman(r.tier)}${(r.attachments && r.attachments !== "none") ? " (+)" : ""}`,
+      label: `${r.weapon} ${tierRoman(r.tier)}${tierPlus ? "+" : ""}`,
       mean,
       sd,
       p50: median,
       labelColor: rarityColor(rarityOf(r.weapon)),
       barColor: rarityColor(rarityOf(r.weapon)),
-      detail: `Tier ${r.tier} · ${(r.attachments || "none")}`,
+      detail: `Tier ${r.tier}${tierPlus ? "+" : ""} · ${(r.attachments || "none")}`,
     };
   }).filter(it => it && Number.isFinite(it.mean));
 
