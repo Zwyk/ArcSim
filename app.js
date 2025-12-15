@@ -567,7 +567,7 @@ function collectUIState(){
     tiersSelected: getSelectedTiers(),
     baseOnly: $("baseOnly")?.checked ?? false,
     stackEq: $("stackEq")?.checked ?? true,
-    stackTol: $("stackTol")?.value ?? "0.000001",
+    stackTol: $("stackTol")?.value ?? "0.001",
     tableCenter: $("tableCenter")?.value ?? "mean",
     graphMetric: uiState.graphMetric || "ttk",
     graphOrderBy: uiState.graphOrderBy || "ttk",
@@ -1359,7 +1359,7 @@ async function init(){
 
       // Empty field => revert to default
       if (raw === ""){
-        uiState.tierTtkTol = 0.05;
+        uiState.tierTtkTol = 0.001;
         scheduleSave();
         render();
         return;
@@ -1403,7 +1403,7 @@ async function init(){
   if (st.ttkScaleMax !== undefined) uiState.ttkScaleMax = st.ttkScaleMax;
   if (st.compareScaleMax !== undefined) uiState.compareScaleMax = st.compareScaleMax;
   if (st.tierTtkTol !== undefined) uiState.tierTtkTol = Number(st.tierTtkTol);
-  if (!Number.isFinite(uiState.tierTtkTol) || uiState.tierTtkTol < 0) uiState.tierTtkTol = 0.05;
+  if (!Number.isFinite(uiState.tierTtkTol) || uiState.tierTtkTol < 0) uiState.tierTtkTol = 0.001;
   const tInRestore = $("ttkScaleMax");
   if (tInRestore) tInRestore.value = (Number.isFinite(uiState.ttkScaleMax) && uiState.ttkScaleMax > 0) ? String(uiState.ttkScaleMax) : "";
   const cInRestore = $("compareScaleMax");
@@ -1818,7 +1818,7 @@ uiState.graphMetric = uiState.graphMetric || "ttk";
 uiState.graphOrderBy = uiState.graphOrderBy || "ttk";
 if (uiState.ttkScaleMax === undefined) uiState.ttkScaleMax = null;
 if (uiState.compareScaleMax === undefined) uiState.compareScaleMax = null;
-if (uiState.tierTtkTol === undefined) uiState.tierTtkTol = 0.05;
+if (uiState.tierTtkTol === undefined) uiState.tierTtkTol = 0.001;
 
 // Metric definitions for charts (mean + median support)
 const METRIC_DEF = {
@@ -2169,7 +2169,7 @@ function drawTTKChart(rows){
 function drawBestPerWeaponChart(rowsFiltered){
   const metricKey = uiState.graphMetric || "ttk";
   const M = getMetricDef(metricKey);
-  const TIER_TTK_TOL = Number.isFinite(uiState.tierTtkTol) ? uiState.tierTtkTol : 0.05; // seconds
+  const TIER_TTK_TOL = Number.isFinite(uiState.tierTtkTol) ? uiState.tierTtkTol : 0.001; // seconds
 
   const byWeapon = new Map();
   for (const r of rowsFiltered){
