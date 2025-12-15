@@ -132,9 +132,26 @@ function attachmentsRarity(attachmentsStr){
   return best;
 }
 
-async function fetchJSON(url){
-  const r = await fetch(url, { cache: "no-store" });
-  if(!r.ok) throw new Error(`Failed to fetch ${url}: ${r.status}`);
+function assetBaseURL(){
+  const u = new URL(document.baseURI);
+
+  // If baseURI ends with a filename (e.g. /index.html), use its directory
+  const last = u.pathname.split("/").pop() || "";
+  if (last.includes(".")) return new URL(".", u);
+
+  // If baseURI looks like a directory without trailing slash (/REPO), add it
+  if (!u.pathname.endsWith("/")) u.pathname += "/";
+
+  return u;
+}
+
+async function fetchJSON(relPath){
+  const abs = new URL(relPath, assetBaseURL()).toString();
+  const r = await fetch(abs, { cache: "no-store" });
+  if(!r.ok){
+    const t = await r.text().catch(()=> "");
+    throw new Error(`Failed to fetch ${abs}: ${r.status} ${r.statusText}${t ? ` — ${t.slice(0,80)}` : ""}`);
+  }
   return await r.json();
 }
 
