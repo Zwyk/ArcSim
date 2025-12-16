@@ -3,7 +3,7 @@
     "name": "Aphelion",
     "damage": 50.0,
     "fire_rate": 1,
-    "mag_size": 5,
+    "mag_size": 10,
     "reload_time_s": 2,
     "tier_mods": {
     },
@@ -81,7 +81,7 @@
     "damage": 5.5,
     "nb_bullets": 9,
     "fire_rate": 1.93,
-    "mag_size": 4,
+    "mag_size": 6,
     "reload_time_s": 3.5,
     "tier_mods": {
       "fire_rate_pct": [
@@ -101,8 +101,8 @@
     "name": "Bettina",
     "damage": 14.0,
     "fire_rate": 4.78,
-    "mag_size": 14,
-    "reload_time_s": 5.7,
+    "mag_size": 22,
+    "reload_time_s": 4.5,
     "tier_mods": {
       "fire_rate_pct": [
         5.0,
@@ -337,7 +337,7 @@
     "name": "Rattler",
     "damage": 9.0,
     "fire_rate": 8.5,
-    "mag_size": 10,
+    "mag_size": 12,
     "reload_time_s": 0.586,
     "reload_amount": 2,
     "tier_mods": {
