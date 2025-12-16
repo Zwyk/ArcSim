@@ -574,6 +574,7 @@ function collectUIState(){
     ttkScaleMax: uiState.ttkScaleMax,
     compareScaleMax: uiState.compareScaleMax,
     tierTtkTol: uiState.tierTtkTol,
+    ttkIncludesReload: uiState.ttkIncludesReload,
     compareTierValues: uiState.compareTierValues || "best",
     sortKey,
     sortDir,
@@ -588,8 +589,24 @@ function scheduleSave(){
 
 function metricTTK(row){
   // precomputed uses ttk_s, simulated uses ttk_p50
-  if(Number.isFinite(row.ttk_p50)) return row.ttk_p50;
-  return row.ttk_s;
+  let t = Number.isFinite(row.ttk_p50) ? row.ttk_p50 : row.ttk_s;
+  if (!Number.isFinite(t)) return t;
+
+  // When unchecked, remove reload time component
+  if (uiState.ttkIncludesReload === false){
+    const rel = Number.isFinite(row.reload_time_p50)
+      ? Number(row.reload_time_p50)
+      : reloadTimeSpent(row);
+    if (Number.isFinite(rel)) t = Math.max(0, t - rel);
+  }
+  return t;
+}
+
+// Always-return TTK including reload (ignores toggle)
+function metricTTKIncludingReload(row){
+  // precomputed uses ttk_s, simulated uses ttk_p50
+  const t = Number.isFinite(row.ttk_p50) ? row.ttk_p50 : row.ttk_s;
+  return t;
 }
 
 // ---- Table center helpers (mean vs median) ----
@@ -1375,6 +1392,16 @@ async function init(){
     });
   }
 
+  // TTK includes reload toggle wiring
+  const incRel = $("ttkIncludesReload");
+  if (incRel){
+    incRel.addEventListener("change", () => {
+      uiState.ttkIncludesReload = !!incRel.checked;
+      scheduleSave();
+      render();
+    });
+  }
+
   // Default preset: Body only (explicit), else first precomputed
   const bodyOnly = presetManifest.find(p => p.id === "preset_body_only")?.id;
   const firstPrecomputed = presetManifest.find(p => p.kind === "precomputed")?.id;
@@ -1404,6 +1431,10 @@ async function init(){
   if (st.compareScaleMax !== undefined) uiState.compareScaleMax = st.compareScaleMax;
   if (st.tierTtkTol !== undefined) uiState.tierTtkTol = Number(st.tierTtkTol);
   if (!Number.isFinite(uiState.tierTtkTol) || uiState.tierTtkTol < 0) uiState.tierTtkTol = 0.001;
+  // default: checked
+  uiState.ttkIncludesReload = (st.ttkIncludesReload !== undefined) ? !!st.ttkIncludesReload : true;
+  const cb = $("ttkIncludesReload");
+  if (cb) cb.checked = !!uiState.ttkIncludesReload;
   const tInRestore = $("ttkScaleMax");
   if (tInRestore) tInRestore.value = (Number.isFinite(uiState.ttkScaleMax) && uiState.ttkScaleMax > 0) ? String(uiState.ttkScaleMax) : "";
   const cInRestore = $("compareScaleMax");
@@ -1420,7 +1451,7 @@ async function init(){
 
   // Wire saving after restore
   [
-    "presetSelect","targetSelect","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax","tierTtkTol"
+    "presetSelect","targetSelect","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax","tierTtkTol","ttkIncludesReload"
   ].forEach(id => {
     const el = $(id);
     if (!el) return;
@@ -1937,19 +1968,43 @@ function extractMetricStats(row, metricKey) {
   }
   if (mean == null) return null;
 
-  const median = (def.p50Field && row[def.p50Field] != null)
+  let median = (def.p50Field && row[def.p50Field] != null)
     ? row[def.p50Field]
     : mean;
 
-  const ciLow = (def.ciLowField && row[def.ciLowField] != null)
+  let ciLow = (def.ciLowField && row[def.ciLowField] != null)
     ? row[def.ciLowField]
     : mean;
 
-  const ciHigh = (def.ciHighField && row[def.ciHighField] != null)
+  let ciHigh = (def.ciHighField && row[def.ciHighField] != null)
     ? row[def.ciHighField]
     : mean;
 
   const sd = def.stdField ? row[def.stdField] : undefined;
+
+  // When plotting TTK and the toggle is off, subtract reload time
+  if (metricKey === "ttk" && uiState.ttkIncludesReload === false){
+    const relMean = Number.isFinite(row.reload_time_mean)
+      ? Number(row.reload_time_mean)
+      : reloadTimeSpent(row);
+
+    const relMed = Number.isFinite(row.reload_time_p50)
+      ? Number(row.reload_time_p50)
+      : relMean;
+
+    if (Number.isFinite(relMean)){
+      mean = Math.max(0, mean - relMean);
+      if (Number.isFinite(ciLow))  ciLow  = Math.max(0, ciLow  - relMean);
+      if (Number.isFinite(ciHigh)) ciHigh = Math.max(0, ciHigh - relMean);
+    }
+    if (Number.isFinite(relMed)){
+      // median dot uses p50
+      // if p50 not present, we used mean above; adjust that path too
+      // Here we adjust median safely
+      // eslint-disable-next-line no-self-assign
+      median = Math.max(0, median - relMed);
+    }
+  }
 
   return { mean, median, ciLow, ciHigh, sd };
 }
@@ -2185,24 +2240,40 @@ function drawBestPerWeaponChart(rowsFiltered){
     const bestByTier = new Map(); // tier -> row
     for (const r of arr){
       const tier = Number(r.tier) || 1;
-      const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      let t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      if (Number.isFinite(t) && uiState.ttkIncludesReload === false){
+        const rel = Number.isFinite(r.reload_time_mean) ? Number(r.reload_time_mean) : reloadTimeSpent(r);
+        if (Number.isFinite(rel)) t = Math.max(0, t - rel);
+      }
       if (!Number.isFinite(t)) continue;
 
       const cur = bestByTier.get(tier);
-      const curT = cur ? (Number.isFinite(cur.ttk_mean) ? cur.ttk_mean : metricTTK(cur)) : Infinity;
+      let curT = cur ? (Number.isFinite(cur.ttk_mean) ? cur.ttk_mean : metricTTK(cur)) : Infinity;
+      if (Number.isFinite(curT) && uiState.ttkIncludesReload === false){
+        const relC = cur ? (Number.isFinite(cur.reload_time_mean) ? Number(cur.reload_time_mean) : reloadTimeSpent(cur)) : undefined;
+        if (Number.isFinite(relC)) curT = Math.max(0, curT - relC);
+      }
       if (!cur || t < curT) bestByTier.set(tier, r);
     }
     if (!bestByTier.size) continue;
 
     let bestTTK = Infinity;
     for (const r of bestByTier.values()){
-      const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      let t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      if (Number.isFinite(t) && uiState.ttkIncludesReload === false){
+        const rel = Number.isFinite(r.reload_time_mean) ? Number(r.reload_time_mean) : reloadTimeSpent(r);
+        if (Number.isFinite(rel)) t = Math.max(0, t - rel);
+      }
       if (t < bestTTK) bestTTK = t;
     }
 
     const closeTiers = [];
     for (const [tier, r] of bestByTier.entries()){
-      const t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      let t = Number.isFinite(r.ttk_mean) ? r.ttk_mean : metricTTK(r);
+      if (Number.isFinite(t) && uiState.ttkIncludesReload === false){
+        const rel = Number.isFinite(r.reload_time_mean) ? Number(r.reload_time_mean) : reloadTimeSpent(r);
+        if (Number.isFinite(rel)) t = Math.max(0, t - rel);
+      }
       if (t <= bestTTK + TIER_TTK_TOL) closeTiers.push(tier);
     }
 
@@ -2234,8 +2305,19 @@ function drawBestPerWeaponChart(rowsFiltered){
       detail: `Tier ${r.tier}${tierPlus ? "+" : ""} · ${(r.attachments || "none")}`,
     };
   }).filter(it => it && Number.isFinite(it.mean));
-
-  const autoMaxHigh = maxWhiskerFromRows(currentRows, M);
+  // Auto max scale: for TTK, compute from TTK including reload (independent of toggle)
+  let autoMaxHigh = maxWhiskerFromRows(currentRows, M);
+  if ((uiState.graphMetric || "ttk") === "ttk"){
+    let maxForScale = 0;
+    for (const { row: r } of bestRows){
+      let mu = Number(r.ttk_mean);
+      if (!Number.isFinite(mu)) mu = metricTTKIncludingReload(r);
+      const sd = Number(r.ttk_std);
+      const hi = Number.isFinite(sd) ? (mu + sd) : mu;
+      if (Number.isFinite(hi)) maxForScale = Math.max(maxForScale, hi);
+    }
+    autoMaxHigh = maxForScale;
+  }
   drawHBarChart("ttkChart", "chartTooltip", "chartMeta", items, {
     titleRight: `${items.length} weapons · showing ${M.label}`,
     unit: M.unit,

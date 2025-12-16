@@ -314,6 +314,11 @@
     // A new shot can't start before the previous burst is done.
     const shotInterval = Math.max(baseInterval, burstDuration);
 
+    // Guard: impossible to fire a single shot if one shot costs more ammo than mag size
+    if (ammoPerShot > magSize) {
+      return { ttk: Infinity, reloads: Infinity };
+    }
+
     // Clamp kill bullet index to a valid range
     const killBullet = Math.max(0, Math.min((bulletsPerShot - 1), killBulletRaw));
 
@@ -323,41 +328,46 @@
     let time       = 0;
 
     while (shotsDone < shotsNeeded) {
-      if (ammoInMag < ammoPerShot) {
-        // Partial / incremental reload (e.g. loading shells / rounds one-by-one).
-        // We add only what's needed to finish the remaining shots (capped at mag size).
-        if (ra && ra > 0 && ra < magSize) {
-          const remainingShots = shotsNeeded - shotsDone;
-          const neededAmmo     = remainingShots * ammoPerShot;
-          const haveAmmo       = ammoInMag;
-
-          const missingAmmo = Math.max(
-            0,
-            Math.min(
-              magSize - haveAmmo,
-              neededAmmo - haveAmmo
-            )
-          );
-
-          // If we're empty but only need 1 shot, we still need at least one reload action.
-          const chunks = Math.max(1, Math.ceil(missingAmmo / ra));
-          time += chunks * rt;
-          ammoInMag += chunks * ra;
-          if (ammoInMag > magSize) ammoInMag = magSize;
-          reloads += chunks;
-        } else {
-          // Full-mag reload.
-          time += rt;
-          ammoInMag = magSize;
-          reloads += 1;
-        }
-      }
-
       ammoInMag -= ammoPerShot;
       shotsDone++;
 
       if (shotsDone < shotsNeeded) {
-        if (shotInterval > 0) time += shotInterval;
+        let reloadTimeAdded = 0;
+
+        // If we can't afford the NEXT shot, reload in-between shots
+        if (ammoInMag < ammoPerShot) {
+          if (ra && ra > 0 && ra < magSize) {
+            const remainingShots = shotsNeeded - shotsDone;   // after firing this shot
+            const neededAmmo     = remainingShots * ammoPerShot;
+            const haveAmmo       = ammoInMag;
+
+            const missingAmmo = Math.max(
+              0,
+              Math.min(
+                magSize - haveAmmo,
+                neededAmmo - haveAmmo
+              )
+            );
+
+            const chunks = Math.max(1, Math.ceil(missingAmmo / ra));
+            reloadTimeAdded = chunks * rt;
+            time += reloadTimeAdded;
+
+            ammoInMag += chunks * ra;
+            if (ammoInMag > magSize) ammoInMag = magSize;
+            reloads += chunks;
+          } else {
+            reloadTimeAdded = rt;
+            time += rt;
+            ammoInMag = magSize;
+            reloads += 1;
+          }
+        }
+
+        // Enforce cadence but don't double-count time already spent reloading
+        const extraWait = Math.max(0, shotInterval - reloadTimeAdded);
+        time += extraWait;
+
       } else {
         // Last shot: if it's a burst weapon, the kill may occur mid-burst.
         if (bulletDelay > 0 && bulletsPerShot > 1) {

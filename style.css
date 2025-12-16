@@ -344,29 +344,52 @@ tbody td{
   white-space:nowrap;
 }
 
+/* Modal overlay container (fixed, centered) */
 .modal{
-  position:fixed;
-  inset:0;
+  position: fixed;
+  inset: 0;
   background: transparent;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:16px;
-  z-index:9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 9999;
 }
-.hidden{ display:none; }
 
 .modalBox{
   width:min(720px, 96vw);
   max-height:80vh;
-  overflow:auto;
+
+  /* key change */
+  overflow:hidden;
+
+  /* keep content structured so only body scrolls */
+  display:flex;
+  flex-direction:column;
+
   background: var(--panel);
   border:1px solid var(--border);
   border-radius:16px;
   padding:14px;
 }
+
+/* the scrolling area */
+.modalBody{
+  margin-top:10px;
+  color:var(--text);
+  font-size:13px;
+  white-space:pre-wrap;
+
+  /* key change */
+  overflow:auto;
+  flex:1 1 auto;
+  min-height:0; /* IMPORTANT: allows flex child to actually shrink and scroll */
+
+  /* optional: prevents scrollbar overlaying text */
+  padding-right:6px;
+}
+.hidden{ display:none; }
 .modalTitle{ font-weight:900; font-size:16px; }
-.modalBody{ margin-top:10px; color:var(--text); font-size:13px; white-space:pre-wrap; }
 
 .sub{
   margin-top:2px;
@@ -433,6 +456,7 @@ th.sortable:hover{
 .chartControlsLeft{
   margin-top: 8px;
   justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .chartCtl{
@@ -441,6 +465,15 @@ th.sortable:hover{
   gap:4px;
   font-size:12px;
   opacity:.9;
+}
+
+.chartCtlInline{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.chartCtlInline input[type="checkbox"]{
+  transform: translateY(1px);
 }
 
 .chartCtl select{
