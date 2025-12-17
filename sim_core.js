@@ -332,10 +332,11 @@
       shotsDone++;
 
       if (shotsDone < shotsNeeded) {
-        let reloadTimeAdded = 0;
+        // Determine if a reload is required before the NEXT shot
+        const needReload = (ammoInMag < ammoPerShot);
 
-        // If we can't afford the NEXT shot, reload in-between shots
-        if (ammoInMag < ammoPerShot) {
+        // If we can't afford the next shot, reload in-between shots
+        if (needReload) {
           if (ra && ra > 0 && ra < magSize) {
             const remainingShots = shotsNeeded - shotsDone;   // after firing this shot
             const neededAmmo     = remainingShots * ammoPerShot;
@@ -350,23 +351,23 @@
             );
 
             const chunks = Math.max(1, Math.ceil(missingAmmo / ra));
-            reloadTimeAdded = chunks * rt;
-            time += reloadTimeAdded;
+            time += chunks * rt;
 
             ammoInMag += chunks * ra;
             if (ammoInMag > magSize) ammoInMag = magSize;
             reloads += chunks;
           } else {
-            reloadTimeAdded = rt;
             time += rt;
             ammoInMag = magSize;
             reloads += 1;
           }
         }
 
-        // Enforce cadence but don't double-count time already spent reloading
-        const extraWait = Math.max(0, shotInterval - reloadTimeAdded);
-        time += extraWait;
+        // Fire time is only the cadence between shots within the same magazine.
+        // If the next shot requires a reload, we do NOT wait shotInterval here.
+        if (!needReload && shotInterval > 0) {
+          time += shotInterval;
+        }
 
       } else {
         // Last shot: if it's a burst weapon, the kill may occur mid-burst.

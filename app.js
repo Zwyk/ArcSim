@@ -1918,13 +1918,30 @@ const METRIC_DEF = {
 // Compute the maximum "whisker" (mean + sd) across a set of rows for a given metric
 function maxWhiskerFromRows(rows, M){
   let maxHi = 0;
+  const key = (M && M.key) ? M.key : "ttk";
+
   for (const r of (rows || [])){
-    const mu = Number(extractMetricStats(r, M.key)?.mean);
-    if (!Number.isFinite(mu)) continue;
-    const sd = Number(extractMetricStats(r, M.key)?.sd);
+    let mu;
+    let sd;
+
+    // For axis autoscaling of TTK, always use the original (simulated) TTK
+    // which includes reload time, even if the UI toggle is unchecked.
+    if (key === "ttk"){
+      mu = Number(r.ttk_mean);
+      if (!Number.isFinite(mu)) mu = metricTTKIncludingReload(r);
+      sd = Number(r.ttk_std);
+    } else {
+      const st = extractMetricStats(r, key);
+      if (!st) continue;
+      mu = Number(st.mean);
+      if (!Number.isFinite(mu)) continue;
+      sd = Number(st.sd);
+    }
+
     const hi = Number.isFinite(sd) ? (mu + sd) : mu;
     if (hi > maxHi) maxHi = hi;
   }
+
   return maxHi;
 }
 
@@ -2305,19 +2322,7 @@ function drawBestPerWeaponChart(rowsFiltered){
       detail: `Tier ${r.tier}${tierPlus ? "+" : ""} · ${(r.attachments || "none")}`,
     };
   }).filter(it => it && Number.isFinite(it.mean));
-  // Auto max scale: for TTK, compute from TTK including reload (independent of toggle)
-  let autoMaxHigh = maxWhiskerFromRows(currentRows, M);
-  if ((uiState.graphMetric || "ttk") === "ttk"){
-    let maxForScale = 0;
-    for (const { row: r } of bestRows){
-      let mu = Number(r.ttk_mean);
-      if (!Number.isFinite(mu)) mu = metricTTKIncludingReload(r);
-      const sd = Number(r.ttk_std);
-      const hi = Number.isFinite(sd) ? (mu + sd) : mu;
-      if (Number.isFinite(hi)) maxForScale = Math.max(maxForScale, hi);
-    }
-    autoMaxHigh = maxForScale;
-  }
+  const autoMaxHigh = maxWhiskerFromRows(currentRows, M);
   drawHBarChart("ttkChart", "chartTooltip", "chartMeta", items, {
     titleRight: `${items.length} weapons · showing ${M.label}`,
     unit: M.unit,

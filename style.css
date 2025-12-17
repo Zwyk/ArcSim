@@ -200,7 +200,8 @@ button.ghost{
   margin-top:18px;
   border:1px solid var(--border);
   border-radius:14px;
-  overflow:hidden;
+  /* Allow sticky headers inside .tableScroller to work correctly */
+  overflow: visible;
   background: rgba(16,24,36,.55);
   padding: 10px;
 }
@@ -221,7 +222,8 @@ table{
 
 .tableScroller{
   overflow-x:auto;
-  overflow-y:visible;
+  overflow-y:auto;           /* enable vertical scrolling inside the table */
+  max-height: 60vh;          /* cap height so it scrolls on smaller screens */
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable both-edges;
   border-radius: 12px;
@@ -269,6 +271,7 @@ table{
 thead th{
   position:sticky;
   top:0;
+  z-index:5;                 /* ensure header row stays above body cells */
   background: rgba(12,16,22,.92);
   border-bottom:1px solid var(--border);
   text-align:left;
@@ -428,7 +431,6 @@ tbody td{
 th.sortable{
   cursor:pointer;
   user-select:none;
-  position: relative;
   padding-right: 20px; /* reserve space for arrow to avoid width shifts */
 }
 
