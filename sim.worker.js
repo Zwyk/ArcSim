@@ -9,6 +9,7 @@ const {
   buildWeaponBase,
   applyTierMods,
   groupAttachmentsByWeapon,
+  getTypeMapForWeapon,
   combosForTypes,
   applyAttachments,
   shotsToKillTrial,
@@ -136,7 +137,7 @@ self.onmessage = (ev) => {
     for(const w of (weapons || [])){
       for(const t of tierList){
         const base = applyTierMods(buildWeaponBase(w), t);
-        const typeMap = attachMap.get(w.name);
+        const typeMap = getTypeMapForWeapon(attachMap, w.name);
         if(typeMap){
           const combos = combosForTypes(typeMap);
           for(const combo of combos){

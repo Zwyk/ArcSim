@@ -48,12 +48,29 @@ const RARITY = {
   Uncommon: ["Il Toro","Burletta","Arpeggio","Anvil"],
   Common: ["Stitcher","Kettle","Hairpin","Ferro","Rattler"],
 };
+
 function rarityOf(weapon){
-  for(const [rar, arr] of Object.entries(RARITY)){
-    if(arr.includes(weapon)) return rar;
+  const w = String(weapon || "").toLowerCase();
+
+  let best = null; // { rar, nameLen }
+
+  for (const [rar, arr] of Object.entries(RARITY)){
+    for (const name of arr){
+      const n = String(name).toLowerCase();
+      if (!n) continue;
+
+      if (w === n || w.includes(n)){
+        const len = n.length;
+        if (!best || len > best.nameLen){
+          best = { rar, nameLen: len };
+        }
+      }
+    }
   }
-  return "Common";
+
+  return best ? best.rar : "Common";
 }
+
 function rarityClass(rar){
   if(rar==="Legendary") return "badge-legendary";
   if(rar==="Epic") return "badge-epic";

@@ -97,18 +97,43 @@
   }
 
   // Group attachments by weapon + type
-  function groupAttachmentsByWeapon(attachments){
-    const map = new Map(); // weapon -> (type -> list)
+ function groupAttachmentsByWeapon(attachments){
+    const map = new Map(); // weaponBase -> (type -> list)
     for (const a of attachments){
       for (const w of (a.compatible || [])){
-        if (!map.has(w)) map.set(w, new Map());
-        const tmap = map.get(w);
+        const key = String(w || "").trim();
+        if (!key) continue;
+
+        if (!map.has(key)) map.set(key, new Map());
+        const tmap = map.get(key);
+
         const type = a.type || "misc";
         if (!tmap.has(type)) tmap.set(type, []);
         tmap.get(type).push(a);
       }
     }
     return map;
+  }
+
+  function getTypeMapForWeapon(attachMap, weaponName){
+    const wn = String(weaponName || "").toLowerCase();
+
+    let bestKey = null;
+    let bestLen = -1;
+
+    for (const key of attachMap.keys()){
+      const k = String(key || "").toLowerCase();
+      if (!k) continue;
+
+      if (wn === k || wn.includes(k)){
+        if (k.length > bestLen){
+          bestLen = k.length;
+          bestKey = key;
+        }
+      }
+    }
+
+    return bestKey ? attachMap.get(bestKey) : null;
   }
 
   // All combinations of "none or one per type"
@@ -442,6 +467,7 @@
     buildWeaponBase,
     applyTierMods,
     groupAttachmentsByWeapon,
+    getTypeMapForWeapon,
     combosForTypes,
     applyAttachments,
     shotsToKillTrial,

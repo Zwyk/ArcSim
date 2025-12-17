@@ -216,7 +216,7 @@
     "headshot_mult": 1.0
   },
   {
-    "name": "Burletta",
+    "name": "Burletta (8 RPS)",
     "damage": 10.0,
     "fire_rate": 8,
     "mag_size": 12,
@@ -284,9 +284,39 @@
     "headshot_mult": 2.5
   },
   {
-    "name": "Kettle",
+    "name": "Kettle (12 RPS)",
     "damage": 10.0,
-    "fire_rate": 8,
+    "fire_rate": 12.0,
+    "mag_size": 20,
+    "reload_time_s": 5.0,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Kettle (8 RPS)",
+    "damage": 10.0,
+    "fire_rate": 8.0,
+    "mag_size": 20,
+    "reload_time_s": 5.0,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        13.33,
+        26.67,
+        40.0
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
+    "name": "Kettle (6 RPS)",
+    "damage": 10.0,
+    "fire_rate": 6.0,
     "mag_size": 20,
     "reload_time_s": 5.0,
     "tier_mods": {

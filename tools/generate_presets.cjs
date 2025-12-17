@@ -38,6 +38,7 @@ const {
   buildWeaponBase,
   applyTierMods,
   groupAttachmentsByWeapon,
+  getTypeMapForWeapon,
   combosForTypes,
   applyAttachments,
   shotsToKillTrial,
@@ -91,7 +92,7 @@ function makeZoneSequence(bodyW, headW, limbsW, length = 100) {
   const parts = [
     ["body", bodyW],
     ["head", headW],
-    ["limb", limbsW],
+    ["limbs", limbsW],
   ].filter(([, w]) => w > 0);
   if (!parts.length) return ["body"];
   const sum = parts.reduce((s, [, w]) => s + w, 0);
@@ -132,7 +133,7 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
     const base0 = buildWeaponBase(wpn);
     const base = { ...base0, attachments: "none" };
 
-    const tmap = attByWeapon.get(wpn.name) || new Map();
+    const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
     const combos = combosForTypes(tmap);
 
     const tiers = maxTier(wpn);
@@ -322,7 +323,7 @@ function runPresetDeterministic(profileName, w){
     const base0 = buildWeaponBase(wpn);
     const base = { ...base0, attachments: "none" };
 
-    const tmap = attByWeapon.get(wpn.name) || new Map();
+    const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
     const combos = combosForTypes(tmap);
 
     const tiers = maxTier(wpn);
