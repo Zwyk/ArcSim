@@ -35,6 +35,7 @@ function main(){
   const weaponName = process.argv[2];
   const tier = parseInt(process.argv[3] || '1', 10);
   const targetId = process.argv[4] || 'Light';
+  const targetPart = process.argv[5] || 'body';
 
   if (!weaponName){
     console.error('Usage: node tools\\debug_weapon.js <WeaponName> [TargetId] [Tier]');
@@ -59,7 +60,7 @@ function main(){
 
   // Deterministic headshots-only sequence
   const maxBullets = 2000; // safety upper bound
-  const hitSeq = new Array(maxBullets).fill('head');
+  const hitSeq = new Array(maxBullets).fill(targetPart);
 
   // Sim state
   let hp = target.hp;
@@ -101,7 +102,7 @@ function main(){
         break;
       }
     }
-    console.log(`After shot ${shots}: hp=${hp.toFixed(3)} shield=${sh.toFixed(3)}`);
+    console.log(`After shot ${shots}: hp=${hp} shield=${sh.toFixed(3)}`);
   }
 
   const bps = stats.bullets_per_shot || 1;
