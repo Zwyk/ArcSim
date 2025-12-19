@@ -1,6 +1,8 @@
 // sim_core.js
 // Shared simulation core used by both the web worker and Node presets.
 
+const CEIL_DIGITS = 8;
+
 // UMD wrapper: works in browser (SimCore global) and Node (module.exports)
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -9,15 +11,6 @@
     root.SimCore = factory();
   }
 })(typeof self !== "undefined" ? self : this, function () {
-
-  // ---- Targets (shields) ----
-  const TARGETS = {
-    NoShield: { name: "NoShield", hp: 100, shield: 0,  dr: 0.0    },
-    Light:    { name: "Light",    hp: 100, shield: 40, dr: 0.25   },
-    Medium:   { name: "Medium",   hp: 100, shield: 70, dr: 0.425  },
-    Heavy:    { name: "Heavy",    hp: 100, shield: 100, dr: 0.525 }
-  };
-
   // ---- Helpers ----
   function clamp01(x){
     if (!Number.isFinite(x)) return 0;
@@ -177,19 +170,6 @@
     return out;
   }
 
-  // Core: apply ONE bullet to (hp, sh), taking DR into account.
-  function applyBullet(targetState, dmg){
-    let { hp, sh, dr } = targetState;
-    if (sh > 0){
-      sh = Math.max(0, sh - dmg);   // full damage to shield
-      hp -= dmg * (1 - dr);        // mitigated damage to HP
-    } else {
-      hp -= dmg;                   // full to HP
-    }
-    targetState.hp = hp;
-    targetState.shield = sh;
-  }
-
   // Monte-Carlo shot loop, with bullets-per-shot and per-bullet zone/miss rolls.
   function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, pMiss, rng){
     let hp = target.hp;
@@ -203,14 +183,14 @@
     // Used for burst weapons with burst_delay_s.
     let killBullet = 0;
 
-    while (hp >= 1.0){
+    while (ceilN(hp) >= 1.0){
       shots++;
 
       // Safety guard for extreme miss rates or invalid inputs
       if (shots > 200000) return Infinity;
 
       // Each bullet in the shot gets its own miss + hit-zone roll
-      for (let b = 0; b < bulletsPerShot && hp >= 1.0; b++){
+      for (let b = 0; b < bulletsPerShot && ceilN(hp) >= 1.0; b++){
         if (rng() < pMiss){
           continue;
         }
@@ -234,7 +214,7 @@
         }
 
         // If we killed within this shot, record which bullet did it (for burst timing)
-        if (hp < 1.0){
+        if (ceilN(hp) < 1.0){
           killBullet = b;
           break;
         }
@@ -265,11 +245,11 @@
     let killBullet = 0;
     let i = 0;
 
-    while (hp >= 1.0){
+    while (ceilN(hp) >= 1.0){
       shots++;
 
       // no misses in deterministic mode, only a fixed sequence of hit types
-      for (let b = 0; b < bulletsPerShot && hp >= 1.0; b++){
+      for (let b = 0; b < bulletsPerShot && ceilN(hp) >= 1.0; b++){
         const zone = hitSeq[i++] || "body";
         let mult = 1.0;
         if (zone === "head")      mult = stats.headshot_mult;
@@ -286,7 +266,7 @@
         }
 
         // If we killed within this shot, record which bullet did it (for burst timing)
-        if (hp < 1.0){
+        if (ceilN(hp) < 1.0){
           killBullet = b;
           break;
         }
@@ -405,6 +385,12 @@
     return { ttk: time, reloads };
   }
 
+  function ceilN(x, digits = CEIL_DIGITS){
+    const p = 10 ** digits;
+    // tiny epsilon prevents floating point artifacts (e.g. 1.23000000002)
+    return Math.ceil(x * p - 1e-9) / p;
+  }
+
   // ---- Stats helpers (mean, stdev, CI, etc.) ----
 
   function mean(arr){
@@ -461,7 +447,6 @@
 
   // Public API
   return {
-    TARGETS,
     clamp01,
     mulberry32,
     buildWeaponBase,

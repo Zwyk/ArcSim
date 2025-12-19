@@ -8,6 +8,8 @@ const path = require('path');
 const fs = require('fs');
 const SimCore = require('../sim_core.js');
 
+const CEIL_DIGITS = 8;
+
 function readJSON(p){
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
@@ -72,37 +74,33 @@ function main(){
   let killBullet = 0;
   let i = 0;
 
-  function applyBullet(mult){
-    const baseDmg = stats.damage_per_bullet;
-    const dmg = baseDmg * mult;
-    if (sh > 0){
-      sh = Math.max(0, sh - baseDmg);
-      hp -= dmg * (1 - dr);
-    } else {
-      hp -= dmg;
-    }
-  }
-
   console.log(`Target=${targetId} (hp=${target.hp}, shield=${target.shield}, dr=${target.dr}) | Tier=${tier}`);
   console.log(`Weapon=${weapon.name} | damage_per_bullet=${stats.damage_per_bullet} | headshot_mult=${stats.headshot_mult} | limbs_mult=${stats.limbs_mult} | bullets_per_shot=${bulletsPerShot}`);
 
-  while (hp >= 1.0 && shots < 200000){
+  while (ceilN(hp) >= 1.0 && shots < 200000){
     shots++;
-    for (let b = 0; b < bulletsPerShot && hp >= 1.0; b++){
+    for (let b = 0; b < bulletsPerShot && ceilN(hp) >= 1.0; b++){
       const zone = hitSeq[i++] || 'head';
       let mult = 1.0;
       if (zone === 'head') mult = stats.headshot_mult;
       else if (zone === 'limbs') mult = stats.limbs_mult;
       else mult = 1.0;
 
-      applyBullet(mult);
+      const baseDmg = stats.damage_per_bullet;
+      const dmg = baseDmg * mult;
+      if (sh > 0){
+        sh = Math.max(0, sh - baseDmg);
+        hp -= dmg * (1 - dr);
+      } else {
+        hp -= dmg;
+      }
 
-      if (hp < 1.0){
+      if (ceilN(hp) < 1.0) {
         killBullet = b;
         break;
       }
     }
-    console.log(`After shot ${shots}: hp=${hp} shield=${sh.toFixed(3)}`);
+    console.log(`After shot ${shots}: hp=${ceilN(hp)} shield=${sh.toFixed(3)}`);
   }
 
   const bps = stats.bullets_per_shot || 1;
@@ -112,6 +110,13 @@ function main(){
   const { ttk, reloads } = SimCore.ttkAndReloadsFromShots({ shots, kill_bullet: killBullet, bullets_to_kill: bulletsToKill }, stats);
 
   console.log(`\nResult: shots=${shots}, bullets_to_kill=${bulletsToKill}, kill_bullet=${killBullet}, ttk=${ttk.toFixed(4)}s, reloads=${reloads}`);
+}
+
+
+function ceilN(x, digits = CEIL_DIGITS){
+  const p = 10 ** digits;
+  // tiny epsilon prevents floating point artifacts (e.g. 1.23000000002)
+  return Math.ceil(x * p - 1e-9) / p;
 }
 
 main();

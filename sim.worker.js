@@ -3,7 +3,6 @@
 importScripts("sim_core.js");
 
 const {
-  TARGETS,
   clamp01,
   mulberry32,
   buildWeaponBase,
