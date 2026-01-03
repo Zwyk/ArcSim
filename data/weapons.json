@@ -161,14 +161,15 @@
   {
     "name": "Renegade",
     "damage": 35.0,
-    "fire_rate": 0.74,
+    "fire_rate": 0.75,
     "mag_size": 8,
-    "reload_time_s": 4.56,
+    "reload_time_s": 0.6,
+    "reload_amount": 1,
     "tier_mods": {
       "fire_rate_pct": [
-        25.0,
-        50.0,
-        75.0
+        33.33,
+        66.67,
+        100.0
       ]
     },
     "headshot_mult": 2.25
