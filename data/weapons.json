@@ -50,9 +50,9 @@
   {
     "name": "Bobcat",
     "damage": 6.0,
-    "fire_rate": 17.15,
+    "fire_rate": 18,
     "mag_size": 20,
-    "reload_time_s": 3.45,
+    "reload_time_s": 3.5,
     "tier_mods": {
       "reload_time_reduction_pct": [
         13.33,
@@ -65,7 +65,7 @@
   {
     "name": "Tempest",
     "damage": 10.0,
-    "fire_rate": 9.23,
+    "fire_rate": 10.0,
     "mag_size": 25,
     "reload_time_s": 3.75,
     "tier_mods": {
@@ -81,14 +81,14 @@
     "name": "Vulcano",
     "damage": 5.5,
     "nb_bullets": 9,
-    "fire_rate": 1.93,
+    "fire_rate": 2.5,
     "mag_size": 6,
     "reload_time_s": 3.5,
     "tier_mods": {
       "fire_rate_pct": [
-        10.0,
-        20.0,
-        30.0
+        13.33,
+        26.67,
+        40.0
       ],
       "reload_time_reduction_pct": [
         13.33,
@@ -103,7 +103,7 @@
     "damage": 14.0,
     "fire_rate": 4.78,
     "mag_size": 22,
-    "reload_time_s": 4.5,
+    "reload_time_s": 5,
     "tier_mods": {
       "fire_rate_pct": [
         5.0,
@@ -121,9 +121,9 @@
   {
     "name": "Torrente",
     "damage": 8.0,
-    "fire_rate": 13.36,
+    "fire_rate": 13.64,
     "mag_size": 60,
-    "reload_time_s": 8.03,
+    "reload_time_s": 8,
     "tier_mods": {
       "mag_add": [
         10.0,
@@ -141,15 +141,15 @@
   {
     "name": "Venator",
     "damage": 9.0,
-    "fire_rate": 3.8,
+    "fire_rate": 3.75,
     "mag_size": 10,
-    "reload_time_s": 3.55,
+    "reload_time_s": 3.5,
     "nb_bullets": 2,
     "tier_mods": {
       "fire_rate_pct": [
-        0,
-        21.0,
-        32.0
+        13.33,
+        26.67,
+        40.0
       ],
       "reload_time_reduction_pct": [
         16.67,
@@ -162,7 +162,7 @@
   {
     "name": "Renegade",
     "damage": 35.0,
-    "fire_rate": 0.75,
+    "fire_rate": 0.74,
     "mag_size": 8,
     "reload_time_s": 0.6,
     "reload_amount": 1,
@@ -178,9 +178,9 @@
   {
     "name": "Osprey",
     "damage": 45.0,
-    "fire_rate": 0.511,
+    "fire_rate": 0.63,
     "mag_size": 8,
-    "reload_time_s": 4.09,
+    "reload_time_s": 6,
     "tier_mods": {
       "fire_rate_pct": [
         20.0,
@@ -199,9 +199,9 @@
     "name": "Il Toro",
     "damage": 7.5,
     "nb_bullets": 9,
-    "fire_rate": 0.68,
+    "fire_rate": 0.85,
     "mag_size": 5,
-    "reload_time_s": 0.41625,
+    "reload_time_s": 0.55,
     "reload_amount": 1,
     "tier_mods": {
       "fire_rate_pct": [
@@ -218,9 +218,9 @@
     "headshot_mult": 1.0
   },
   {
-    "name": "Burletta (8 RPS)",
+    "name": "Burletta (7.5 RPS)",
     "damage": 10.0,
-    "fire_rate": 8,
+    "fire_rate": 7.5,
     "mag_size": 12,
     "reload_time_s": 3.0,
     "tier_mods": {
@@ -273,22 +273,22 @@
   {
     "name": "Stitcher",
     "damage": 7.0,
-    "fire_rate": 11.18,
+    "fire_rate": 12.5,
     "mag_size": 20,
     "reload_time_s": 3.0,
     "tier_mods": {
       "reload_time_reduction_pct": [
-        16.67,
-        33.33,
-        50
+        13.33,
+        26.67,
+        40.0
       ]
     },
     "headshot_mult": 2.5
   },
   {
-    "name": "Kettle (12 RPS)",
+    "name": "Kettle (10 RPS)",
     "damage": 10.0,
-    "fire_rate": 12.0,
+    "fire_rate": 10.0,
     "mag_size": 20,
     "reload_time_s": 5.0,
     "tier_mods": {
@@ -333,7 +333,7 @@
   {
     "name": "Hairpin",
     "damage": 20.0,
-    "fire_rate": 0.9,
+    "fire_rate": 0.91,
     "mag_size": 8,
     "reload_time_s": 3,
     "tier_mods": {
@@ -355,7 +355,7 @@
     "damage": 40.0,
     "fire_rate": 0.5,
     "mag_size": 1,
-    "reload_time_s": 2.83,
+    "reload_time_s": 3,
     "tier_mods": {
       "reload_time_reduction_pct": [
         13.33,
