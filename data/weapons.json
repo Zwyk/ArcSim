@@ -3,7 +3,7 @@
     "name": "Aphelion",
     "damage": 25.0,
     "nb_bullets": 2,
-    "fire_rate": 1.8,
+    "fire_rate": 1.83,
     "mag_size": 10,
     "reload_time_s": 4.5,
     "tier_mods": {
@@ -14,9 +14,9 @@
     "name": "Anvil Splitter",
     "damage": 12.0,
     "nb_bullets": 4,
-    "fire_rate": 0.67,
+    "fire_rate": 0.66,
     "mag_size": 6,
-    "reload_time_s": 0.84,
+    "reload_time_s": 0.8333,
     "reload_amount": 1,
     "tier_mods": {
       "fire_rate_pct": [
@@ -30,7 +30,7 @@
   {
     "name": "Equalizer",
     "damage": 8.0,
-    "fire_rate": 6.5,
+    "fire_rate": 8.305,
     "mag_size": 50,
     "reload_time_s": 3,
     "tier_mods": {
@@ -40,9 +40,9 @@
   {
     "name": "Jupiter",
     "damage": 60.0,
-    "fire_rate": 0.8,
+    "fire_rate": 0.353,
     "mag_size": 5,
-    "reload_time_s": 2.5,
+    "reload_time_s": 3.0,
     "tier_mods": {
     },
     "headshot_mult": 2
@@ -50,9 +50,9 @@
   {
     "name": "Bobcat",
     "damage": 6.0,
-    "fire_rate": 18,
+    "fire_rate": 16.52,
     "mag_size": 20,
-    "reload_time_s": 3.5,
+    "reload_time_s": 3.0,
     "tier_mods": {
       "reload_time_reduction_pct": [
         13.33,
@@ -65,9 +65,9 @@
   {
     "name": "Tempest",
     "damage": 10.0,
-    "fire_rate": 10.0,
+    "fire_rate": 9.35,
     "mag_size": 25,
-    "reload_time_s": 3.75,
+    "reload_time_s": 3.7,
     "tier_mods": {
       "reload_time_reduction_pct": [
         13.33,
@@ -81,14 +81,14 @@
     "name": "Vulcano",
     "damage": 5.5,
     "nb_bullets": 9,
-    "fire_rate": 2.5,
+    "fire_rate": 2,
     "mag_size": 6,
-    "reload_time_s": 3.5,
+    "reload_time_s": 3.3,
     "tier_mods": {
       "fire_rate_pct": [
-        10,
-        20,
-        30
+        12,
+        24,
+        36
       ],
       "reload_time_reduction_pct": [
         13.33,
@@ -101,9 +101,9 @@
   {
     "name": "Bettina",
     "damage": 14.0,
-    "fire_rate": 4.78,
+    "fire_rate": 4.79,
     "mag_size": 22,
-    "reload_time_s": 5,
+    "reload_time_s": 4.5,
     "tier_mods": {
       "fire_rate_pct": [
         5.0,
@@ -121,7 +121,7 @@
   {
     "name": "Torrente",
     "damage": 8.0,
-    "fire_rate": 13.64,
+    "fire_rate": 13.41,
     "mag_size": 60,
     "reload_time_s": 8,
     "tier_mods": {
@@ -131,9 +131,9 @@
         30.0
       ],
       "reload_time_reduction_pct": [
-        15.0,
-        30.0,
-        45.0
+        13.33,
+        26.67,
+        40.0
       ]
     },
     "headshot_mult": 2
@@ -143,18 +143,18 @@
     "damage": 9.0,
     "fire_rate": 3.75,
     "mag_size": 10,
-    "reload_time_s": 3.5,
+    "reload_time_s": 3.3,
     "nb_bullets": 2,
     "tier_mods": {
       "fire_rate_pct": [
-        13.33,
-        26.67,
-        40.0
+        11.11,
+        22.22,
+        33.33
       ],
       "reload_time_reduction_pct": [
-        16.67,
-        33.33,
-        50
+        13.33,
+        26.67,
+        40
       ]
     },
     "headshot_mult": 2.5
@@ -162,7 +162,7 @@
   {
     "name": "Renegade",
     "damage": 35.0,
-    "fire_rate": 0.74,
+    "fire_rate": 0.75,
     "mag_size": 8,
     "reload_time_s": 0.6,
     "reload_amount": 1,
@@ -170,7 +170,7 @@
       "fire_rate_pct": [
         33.33,
         66.67,
-        100.0
+        100
       ]
     },
     "headshot_mult": 2.25
@@ -180,7 +180,7 @@
     "damage": 45.0,
     "fire_rate": 0.63,
     "mag_size": 8,
-    "reload_time_s": 6,
+    "reload_time_s": 4,
     "tier_mods": {
       "fire_rate_pct": [
         20.0,
@@ -199,9 +199,9 @@
     "name": "Il Toro",
     "damage": 7.5,
     "nb_bullets": 9,
-    "fire_rate": 0.85,
+    "fire_rate": 0.70,
     "mag_size": 5,
-    "reload_time_s": 0.55,
+    "reload_time_s": 0.66,
     "reload_amount": 1,
     "tier_mods": {
       "fire_rate_pct": [
@@ -237,7 +237,7 @@
     "damage": 9.5,
     "nb_bullets": 3,
     "burst_delay": 0.08,
-    "fire_rate": 1.8,
+    "fire_rate": 1.6,
     "mag_size": 24,
     "reload_time_s": 4.0,
     "tier_mods": {
@@ -249,7 +249,7 @@
       "reload_time_reduction_pct": [
         12.5,
         25,
-        37.5
+        50
       ]
     },
     "headshot_mult": 2.0
@@ -257,9 +257,9 @@
   {
     "name": "Anvil",
     "damage": 40.0,
-    "fire_rate": 0.67,
+    "fire_rate": 0.66,
     "mag_size": 6,
-    "reload_time_s": 0.84,
+    "reload_time_s": 0.8333,
     "reload_amount": 1,
     "tier_mods": {
       "fire_rate_pct": [
@@ -273,7 +273,7 @@
   {
     "name": "Stitcher",
     "damage": 7.0,
-    "fire_rate": 12.5,
+    "fire_rate": 11.5,
     "mag_size": 20,
     "reload_time_s": 3.0,
     "tier_mods": {
@@ -343,9 +343,9 @@
         30.0
       ],
       "reload_time_reduction_pct": [
-        16.67,
-        33.33,
-        50
+        13.33,
+        26.67,
+        40
       ]
     },
     "headshot_mult": 2.5
@@ -370,7 +370,7 @@
     "damage": 9.0,
     "fire_rate": 8.5,
     "mag_size": 12,
-    "reload_time_s": 0.586,
+    "reload_time_s": 0.33,
     "reload_amount": 2,
     "tier_mods": {
       "mag_add": [
