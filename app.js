@@ -120,14 +120,14 @@ function cleanAttachmentName(s){
 function attachmentRarityOfName(name){
   const n = cleanAttachmentName(name);
 
-  if (/kinetic converter/i.test(n)) return "Legendary";
+  // Accept both spellings: Converter / Convertor
+  if (/kinetic convert(?:er|or)/i.test(n)) return "Legendary";
   if (/extended.*mag iii/i.test(n))  return "Rare";
   if (/extended.*mag ii/i.test(n))   return "Uncommon";
   if (/extended.*mag i\b/i.test(n))  return "Common";
 
   return "Common";
 }
-
 // Highest rarity among all attachments in the combo
 function attachmentsRarity(attachmentsStr){
   const s = String(attachmentsStr || "").trim();
@@ -582,7 +582,7 @@ function collectUIState(){
     presetFile: $("presetSelect")?.value ?? null,
     target: $("targetSelect")?.value ?? null,
     tiersSelected: getSelectedTiers(),
-    baseOnly: $("baseOnly")?.checked ?? false,
+	    attachmentsMode: $("attachmentsMode")?.value ?? "base",
     stackEq: $("stackEq")?.checked ?? true,
     stackTol: $("stackTol")?.value ?? "0.001",
     tableCenter: $("tableCenter")?.value ?? "mean",
@@ -815,11 +815,30 @@ function attachmentRank(attName){
   if(attName.includes("Extended") && attName.includes("Mag I")) r = Math.min(r, 10);
   if(attName.includes("Extended") && attName.includes("Mag II")) r = Math.min(r, 20);
   if(attName.includes("Extended") && attName.includes("Mag III")) r = Math.min(r, 30);
-  if(attName.includes("Kinetic Converter")) r = Math.min(r, 40);
+  if(/Kinetic Convert(?:er|or)/i.test(attName)) r = Math.min(r, 40);
 
   // fallback for unknown attachments: stable-ish
   if(r === 1000) r = 500 + attName.length;
   return r;
+}
+
+function isBaseAttachments(a){
+  return (a === "none" || !a);
+}
+
+function hasKinetic(a){
+  return /kinetic convert(?:er|or)/i.test(String(a || ""));
+}
+
+function filterRowsByAttachmentMode(rows, mode){
+  const m = mode || "base";
+  if (m === "base"){
+    return rows.filter(r => isBaseAttachments(r.attachments));
+  }
+  if (m === "best_no_kinetic"){
+    return rows.filter(r => !hasKinetic(r.attachments));
+  }
+  return rows;
 }
 
 function stackEquivalent(rows, tol){
@@ -969,7 +988,7 @@ function render(){
   updateSortIndicators();
   const target = $("targetSelect").value;
   const selectedTiers = getSelectedTiers();
-  const baseOnly = $("baseOnly").checked;
+  const attachmentsMode = $("attachmentsMode")?.value || "base";
   // Start from target-only rows
   let rows = currentRows.filter(r => r.target === target);
 
@@ -981,9 +1000,7 @@ function render(){
     const set = new Set(selectedTiers);
     rows = rows.filter(r => set.has(+r.tier));
   }
-  if (baseOnly){
-    rows = rows.filter(r => (r.attachments === "none" || !r.attachments));
-  }
+  rows = filterRowsByAttachmentMode(rows, attachmentsMode);
 
   // Always include Tier 1-only weapons, even if Tier 1 isn't selected
   try{
@@ -1006,9 +1023,7 @@ function render(){
         for (const w of tier1OnlyWeapons){
           if (haveWeaponInRows.has(w)) continue;
           let add = rowsCompare.filter(r => r.weapon === w && Number(r.tier) === 1);
-          if (baseOnly){
-            add = add.filter(r => (r.attachments === "none" || !r.attachments));
-          }
+          add = filterRowsByAttachmentMode(add, attachmentsMode);
           if (add.length) rows.push(...add);
         }
       }
@@ -1073,9 +1088,12 @@ function render(){
     // For each available tier of the weapon, pick the BEST (min mean TTK) setup for that tier
     for (const t of tiersAvailWeapon){
       let cand = rowsCompare.filter(r => r.weapon === W && Number(r.tier) === t);
-      if ((uiState.compareTierValues || "best") === "base"){
-        cand = cand.filter(r => (r.attachments === "none" || !r.attachments));
-      }
+	      const cv = (uiState.compareTierValues || "best");
+	      if (cv === "base"){
+	        cand = cand.filter(r => isBaseAttachments(r.attachments));
+	      } else if (cv === "best_no_kinetic"){
+	        cand = cand.filter(r => !hasKinetic(r.attachments));
+	      }
       if (!cand.length) continue;
       let best = cand[0];
       for (const r of cand){
@@ -1094,9 +1112,11 @@ function render(){
         mean,
         p50: median,
         sd,
-        detail: ((uiState.compareTierValues || "best") === "base")
-                  ? (best.attachments || "none") + " · (base)"
-                  : (best.attachments || "none") + " · (best setup)",
+	        detail: (cv === "base")
+	                  ? (best.attachments || "none") + " · (base)"
+	                  : (cv === "best_no_kinetic")
+	                      ? (best.attachments || "none") + " · (best w/o kinetic)"
+	                      : (best.attachments || "none") + " · (best setup)",
         barColor: rarityColor(rarityOf(W)),
         labelColor: rarityColor(rarityOf(W)),
         _order: Number(extractMetricStats(best, orderKey)?.mean)
@@ -1311,7 +1331,7 @@ async function init(){
     scheduleSave();
     render();
   });
-  $("baseOnly").addEventListener("change", render);
+	  $("attachmentsMode")?.addEventListener("change", render);
   $("stackTol").addEventListener("input", render);
   $("confidence").addEventListener("change", ()=>{
     render();
@@ -1436,9 +1456,16 @@ async function init(){
   if ($("graphMetric")) $("graphMetric").value = uiState.graphMetric || "ttk";
   if ($("graphOrderBy")) $("graphOrderBy").value = uiState.graphOrderBy || "ttk";
 
-  if (st.stackTol != null) $("stackTol").value = st.stackTol;
-  if (st.baseOnly != null) $("baseOnly").checked = !!st.baseOnly;
-  else $("baseOnly").checked = true; // default: Base only on
+	  if (st.stackTol != null) $("stackTol").value = st.stackTol;
+	  // Attachments mode (migrate old baseOnly checkbox if present)
+	  const attModeEl = $("attachmentsMode");
+	  if (attModeEl){
+	    let m = st.attachmentsMode ?? null;
+	    if (!m && st.baseOnly != null) m = st.baseOnly ? "base" : "best";
+	    if (!m) m = "base"; // default: Base only
+	    const ok = [...attModeEl.options].some(o => o.value === m);
+	    attModeEl.value = ok ? m : "base";
+	  }
   // stackEq checkbox removed; merging controlled by stackTol > 0
   if (st.tableCenter && $("tableCenter")) $("tableCenter").value = st.tableCenter;
   if (st.sortKey) sortKey = st.sortKey;
@@ -1467,9 +1494,9 @@ async function init(){
   await loadPresetById($("presetSelect").value);
 
   // Wire saving after restore
-  [
-    "presetSelect","targetSelect","stackTol","baseOnly","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax","tierTtkTol","ttkIncludesReload"
-  ].forEach(id => {
+	  [
+	    "presetSelect","targetSelect","stackTol","attachmentsMode","graphMetric","graphOrderBy","ttkScaleMax","compareScaleMax","tierTtkTol","ttkIncludesReload"
+	  ].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("change", scheduleSave);
@@ -1504,9 +1531,9 @@ async function init(){
   });
 
   // Save on changes
-  [
-    "presetSelect","targetSelect","stackTol","baseOnly","tableCenter"
-  ].forEach(id => {
+	  [
+	    "presetSelect","targetSelect","stackTol","attachmentsMode","tableCenter"
+	  ].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("change", scheduleSave);
