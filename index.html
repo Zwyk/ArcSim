@@ -59,6 +59,12 @@
         <input id="missPct" type="range" min="0" max="95" value="5" />
         <div class="hint" id="missLabel">Miss: 5%</div>
 
+        <div class="multiTargetsRow">
+          <div class="label" style="margin:0;">Multi-target setup</div>
+          <button id="editMultiTargetsBtn" class="ghost iconBtn" type="button" title="Edit multi-target scenario">✎</button>
+        </div>
+        <div class="hint" id="multiTargetsHint"></div>
+
         <div class="row2">
           <div>
             <label class="label">Trials</label>
@@ -269,7 +275,7 @@
 <h3>Important notes</h3>
 We assume optimal range for all weapons (no damage drop-off).
 Aim/ADS/Prefire time are not accounted for.
-For guns that shoot semi-automatically, unless specified, we assume the maximum between their allowed shots per second or a good human-like clicking speed arbitrary defined to 8.0.
+For guns that shoot semi-automatically, unless specified, we assume the maximum allowed in-game.
 
 Most weapons values are taken from the Anvil Community data which I found to be the most accurate.
 You can also see and edit them for your local tests by pressing the "edit values" button down there before running a custom simulation if you want to mess around or test custom values.
@@ -278,7 +284,9 @@ You can contact me on Discord or Reddit if you have any question: Zwyk
 
 <h3>Patch note</h3>
 2026-01-13
+    - 1.11.0 patch: Adjusted Kettle max RPS to 7.5 (from 10)
     - New feature: Delta arrows (▲▼) indicating performance changes since the last patch
+    - New feature: Multi-target support. You can edit a custom multi-target scenario (2 or more targets) for custom simulations.
     - Added Kinetic Converter to Aphelion possible attachments, and removed it from Tempest
 
 2026-01-09
@@ -357,6 +365,36 @@ You can contact me on Discord or Reddit if you have any question: Zwyk
         style="margin-top:12px; width:100%; height:60vh; resize:vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; line-height:1.4; background:rgba(0,0,0,.25); color:inherit; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px;"></textarea>
 
       
+    </div>
+  </div>
+
+  <!-- Multi-target editor modal -->
+  <div id="multiTargetsModal" class="modal hidden" style="display:none;">
+    <div class="modalBox" style="max-width: 560px; width: 96%; padding: 18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <div style="font-size:16px; font-weight:650;">Edit multi-target scenario</div>
+          <div style="font-size:12px; opacity:.75;">Applies to custom simulations only.</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+          <button id="saveMultiTargetsBtn" class="btn" type="button">Save</button>
+          <button id="resetMultiTargetsBtn" class="btn secondary" type="button">Reset</button>
+          <button id="closeMultiTargetsModal" class="btn secondary" type="button">Close</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; font-size:12px; opacity:.8;">
+        Enter a list of shield ids separated by “+”, commas, spaces, or new lines. Must contain at least 2 shields.
+      </div>
+
+      <textarea id="multiTargetsEditor"
+        spellcheck="false"
+        style="margin-top:12px; width:100%; height:120px; resize:vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; line-height:1.4; background:rgba(0,0,0,.25); color:inherit; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px;"></textarea>
+
+      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div id="multiTargetsModalStatus" style="font-size:12px; opacity:.85;"></div>
+        <div style="font-size:12px; opacity:.75; margin-left:auto;">Available: <span id="multiTargetsAvailable"></span></div>
+      </div>
     </div>
   </div>
 

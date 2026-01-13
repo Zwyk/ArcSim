@@ -233,6 +233,21 @@
     "headshot_mult": 2.5
   },
   {
+    "name": "Burletta (6 RPS)",
+    "damage": 10.0,
+    "fire_rate": 6.0,
+    "mag_size": 12,
+    "reload_time_s": 3.0,
+    "tier_mods": {
+      "reload_time_reduction_pct": [
+        16.67,
+        33.33,
+        50
+      ]
+    },
+    "headshot_mult": 2.5
+  },
+  {
     "name": "Arpeggio",
     "damage": 9.5,
     "nb_bullets": 3,
@@ -286,24 +301,9 @@
     "headshot_mult": 2.5
   },
   {
-    "name": "Kettle (10 RPS)",
+    "name": "Kettle (7.5 RPS)",
     "damage": 10.0,
-    "fire_rate": 10.0,
-    "mag_size": 20,
-    "reload_time_s": 5.0,
-    "tier_mods": {
-      "reload_time_reduction_pct": [
-        13.33,
-        26.67,
-        40.0
-      ]
-    },
-    "headshot_mult": 2.5
-  },
-  {
-    "name": "Kettle (8 RPS)",
-    "damage": 10.0,
-    "fire_rate": 8.0,
+    "fire_rate": 7.5,
     "mag_size": 20,
     "reload_time_s": 5.0,
     "tier_mods": {

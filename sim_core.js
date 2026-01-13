@@ -169,6 +169,7 @@ function applyMods(stats, modsList, opts){
 
     if (m.fire_rate_mult != null)    out.fire_rate_bps *= m.fire_rate_mult;
     if (m.fire_rate_pct != null)     out.fire_rate_bps *= (1 + (m.fire_rate_pct / 100));
+    if (m.fire_rate != null)         out.fire_rate_bps += m.fire_rate;
 
     if (m.reload_time_mult != null)  out.reload_time_s *= m.reload_time_mult;
     if (m.reload_time_pct != null)   out.reload_time_s *= (1 + (m.reload_time_pct / 100));
@@ -208,6 +209,7 @@ function unapplyMods(stats, modsList, opts){
 
     if (m.fire_rate_mult != null)    out.fire_rate_bps /= m.fire_rate_mult;
     if (m.fire_rate_pct != null)     out.fire_rate_bps /= (1 + (m.fire_rate_pct / 100));
+    if (m.fire_rate != null)         out.fire_rate_bps -= m.fire_rate;
 
     if (m.reload_time_mult != null)  out.reload_time_s /= m.reload_time_mult;
     if (m.reload_time_pct != null)   out.reload_time_s /= (1 + (m.reload_time_pct / 100));
@@ -239,26 +241,55 @@ function unapplyAttachments(stats, combo){
 }
 
   // Monte-Carlo shot loop, with bullets-per-shot and per-bullet zone/miss rolls.
+  // Supports either a single target object, or an array of targets for sequential multi-target sims.
   function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, pMiss, rng){
-    let hp = target.hp;
-    let sh = target.shield;
-    const dr = target.dr;
+    const targets = Array.isArray(target) ? target : [target];
+    if (!targets.length) return Infinity;
+
+    let idx = 0;
+    let hp = targets[0].hp;
+    let sh = targets[0].shield;
+    let dr = targets[0].dr;
 
     const bulletsPerShot = stats.bullets_per_shot || 1;
     let shots = 0;
 
-    // Index (0-based) of the bullet within the last shot that landed the killing blow.
+    // Index (0-based) of the bullet within the last shot that landed the FINAL killing blow.
     // Used for burst weapons with burst_delay_s.
     let killBullet = 0;
 
-    while (ceilN(hp) >= 1.0){
+    // Helper: move to next target when current dies, return true if we still have targets left
+    function advanceTarget(){
+      idx++;
+      if (idx >= targets.length) return false;
+      const t = targets[idx];
+      hp = t.hp;
+      sh = t.shield;
+      dr = t.dr;
+      return true;
+    }
+
+    // Loop until all targets are dead
+    while (idx < targets.length){
+      // If current target already dead (edge cases), advance
+      if (ceilN(hp) < 1.0){
+        if (!advanceTarget()) break;
+        continue;
+      }
+
       shots++;
 
       // Safety guard for extreme miss rates or invalid inputs
       if (shots > 200000) return Infinity;
 
       // Each bullet in the shot gets its own miss + hit-zone roll
-      for (let b = 0; b < bulletsPerShot && ceilN(hp) >= 1.0; b++){
+      for (let b = 0; b < bulletsPerShot && idx < targets.length; b++){
+        // If current target died between bullets (possible if we advanced), ensure we're on a live target
+        while (idx < targets.length && ceilN(hp) < 1.0){
+          if (!advanceTarget()) break;
+        }
+        if (idx >= targets.length) break;
+
         if (rng() < pMiss){
           continue;
         }
@@ -281,13 +312,17 @@ function unapplyAttachments(stats, combo){
           hp -= dmg;
         }
 
-        // If we killed within this shot, record which bullet did it (for burst timing)
+        // If we killed the current target with this bullet:
         if (ceilN(hp) < 1.0){
-          killBullet = b;
-          break;
+          // If that was the last target, record kill bullet and finish this shot
+          if (idx === targets.length - 1){
+            killBullet = b;
+            idx = targets.length; // mark done
+            break;
+          }
+          // Otherwise, advance immediately and keep going within the same shot/burst
+          advanceTarget();
         }
-
-        if (shots > 200000) return Infinity;
       }
     }
 
@@ -296,28 +331,53 @@ function unapplyAttachments(stats, combo){
     const bulletsToKill = isBurst
       ? ((shots - 1) * bps2 + (killBullet + 1))
       : shots;
+
     return { shots, kill_bullet: killBullet, bullets_to_kill: bulletsToKill };
   }
 
-  // Deterministic version with a fixed sequence of hit-zones for bullets
+  // Deterministic version with a fixed sequence of hit-zones for bullets.
+  // Supports either a single target object, or an array of targets for sequential multi-target sims.
   function shotsToKillWithSeq(stats, target, hitSeq){
-    let hp = target.hp;
-    let sh = target.shield;
-    const dr = target.dr;
+    const targets = Array.isArray(target) ? target : [target];
+    if (!targets.length) return Infinity;
+
+    let idx = 0;
+    let hp = targets[0].hp;
+    let sh = targets[0].shield;
+    let dr = targets[0].dr;
+
     const bulletsPerShot = stats.bullets_per_shot || 1;
 
     let shots = 0;
 
-    // Index (0-based) of the bullet within the last shot that landed the killing blow.
-    // Used for burst weapons with burst_delay_s.
+    // Index (0-based) of the bullet within the last shot that landed the FINAL killing blow.
     let killBullet = 0;
     let i = 0;
 
-    while (ceilN(hp) >= 1.0){
+    function advanceTarget(){
+      idx++;
+      if (idx >= targets.length) return false;
+      const t = targets[idx];
+      hp = t.hp;
+      sh = t.shield;
+      dr = t.dr;
+      return true;
+    }
+
+    while (idx < targets.length){
+      if (ceilN(hp) < 1.0){
+        if (!advanceTarget()) break;
+        continue;
+      }
+
       shots++;
 
-      // no misses in deterministic mode, only a fixed sequence of hit types
-      for (let b = 0; b < bulletsPerShot && ceilN(hp) >= 1.0; b++){
+      for (let b = 0; b < bulletsPerShot && idx < targets.length; b++){
+        while (idx < targets.length && ceilN(hp) < 1.0){
+          if (!advanceTarget()) break;
+        }
+        if (idx >= targets.length) break;
+
         const zone = hitSeq[i++] || "body";
         let mult = 1.0;
         if (zone === "head")      mult = stats.headshot_mult;
@@ -333,10 +393,13 @@ function unapplyAttachments(stats, combo){
           hp -= dmg;
         }
 
-        // If we killed within this shot, record which bullet did it (for burst timing)
         if (ceilN(hp) < 1.0){
-          killBullet = b;
-          break;
+          if (idx === targets.length - 1){
+            killBullet = b;
+            idx = targets.length;
+            break;
+          }
+          advanceTarget();
         }
 
         if (shots > 200000) return Infinity;
@@ -350,6 +413,7 @@ function unapplyAttachments(stats, combo){
       : shots;
     return { shots, kill_bullet: killBullet, bullets_to_kill: bulletsToKill };
   }
+
 
   // Turn shots needed into TTK + reloads.
   // Timing is shot-based (fire_rate is shots/sec).

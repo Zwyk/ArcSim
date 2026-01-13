@@ -166,6 +166,15 @@ button.ghost{
   gap:10px;
 }
 
+/* Inline row used to edit the custom multi-target scenario */
+.multiTargetsRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+}
+
 .hint{
   margin-top:8px;
   color:var(--muted);
@@ -613,31 +622,4 @@ th.sortable:hover{
   body.sidebar-open{
     overflow: hidden;
   }
-}
-/* --- Pre-patch delta arrows --- */
-.cellMain{
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-.deltaArrow{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  font-size: 11px;
-  line-height: 1;
-  cursor: help;
-  user-select: none;
-}
-.deltaArrow.deltaNone{ visibility: hidden; pointer-events: none; cursor: default; }
-.deltaUp{ color: var(--uncommon, #33d17a); }
-.deltaDown{ color: var(--accent, #ff5a5f); }
-
-
-/* Delta tooltip (pre-patch arrows): allow wrapping on small screens */
-#deltaTooltip{
-  max-width: min(420px, 92vw);
-  white-space: normal;
 }

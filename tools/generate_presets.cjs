@@ -12,21 +12,58 @@ const weapons = JSON.parse(
 const attachments = JSON.parse(
   fs.readFileSync(path.join(ROOT, "data/attachments.json"), "utf8")
 );
-
-const patch = (() => {
-  try {
-    const p = path.join(ROOT, "data/patch.json");
-    if (fs.existsSync(p)) {
-      const raw = JSON.parse(fs.readFileSync(p, "utf8"));
-      return Array.isArray(raw) ? raw : [];
-    }
-  } catch (e) {
-    console.warn("[warn] Failed to read data/patch.json:", e?.message || e);
-  }
-  return [];
-})();
-
 const SimCore = require("../sim_core.js");
+
+// Load patch deltas (optional). Used to compute pre-patch baselines when generating "prepatch" presets.
+let patch = [];
+try{
+  const patchPath = path.join(ROOT, "data/patch.json");
+  if (fs.existsSync(patchPath)){
+    patch = JSON.parse(fs.readFileSync(patchPath, "utf8"));
+  }
+}catch(e){
+  console.warn("[warn] Failed to load data/patch.json:", String(e?.message || e));
+  patch = [];
+}
+
+// Build: weaponName -> [modObj, modObj, ...]
+function groupPatchModsByWeapon(patchArr){
+  const out = new Map();
+  for (const it of (patchArr || [])){
+    if (!it) continue;
+    const compat = it.compatible ?? it.weapons ?? it.weapon ?? it.weapon_name;
+    const list = Array.isArray(compat) ? compat
+      : (typeof compat === "string" ? [compat] : null);
+    if (!list || !list.length) continue;
+
+    // Remove routing keys; remaining keys are treated like attachment mods.
+    const mod = { ...it };
+    delete mod.compatible;
+    delete mod.weapons;
+    delete mod.weapon;
+    delete mod.weapon_name;
+
+    for (const wName of list){
+      const key = String(wName || "").trim();
+      if (!key) continue;
+      if (!out.has(key)) out.set(key, []);
+      out.get(key).push(mod);
+    }
+  }
+  return out;
+}
+
+const patchModsByWeapon = groupPatchModsByWeapon(patch);
+
+// Build a map shaped like attachments map so we can reuse getTypeMapForWeapon() fuzzy matching.
+// Map<key, Map<"patch", modList[]>>
+const patchMap = new Map();
+for (const [k, mods] of patchModsByWeapon.entries()){
+  const key = String(k || "").trim();
+  if (!key) continue;
+  if (!patchMap.has(key)) patchMap.set(key, new Map([["patch", []]]));
+  patchMap.get(key).get("patch").push(...(mods || []));
+}
 
 // Load shields
 const shieldsRaw = JSON.parse(
@@ -45,6 +82,50 @@ function normalizeShields(json){
   return json || {};
 }
 const TARGETS = normalizeShields(shieldsRaw);
+
+// Multi-target default scenario to include in presets (appended after single-target shields)
+const DEFAULT_MULTI_TARGET = ["Medium","Light","Light"]; // change here if you want e.g. ["Light","Light","Light"]
+function buildTargetScenarios(TARGETS_MAP){
+  const out = [];
+
+  // Build a loose lookup so DEFAULT_MULTI_TARGET can use either ids or labels (space-insensitive).
+  const norm = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "");
+  const lookup = new Map();
+
+  for (const id of Object.keys(TARGETS_MAP)){
+    const t = TARGETS_MAP[id];
+
+    // Single-target scenarios remain keyed by id
+    out.push({ name: id, target: t, hp: t.hp, shield: t.shield, dr: t.dr });
+
+    lookup.set(norm(id), id);
+    if (t?.label) lookup.set(norm(t.label), id);
+    if (t?.name) lookup.set(norm(t.name), id);
+  }
+
+  // Append the multi-target example if all parts exist
+  const parts = DEFAULT_MULTI_TARGET.slice();
+  const resolved = parts.map(p => lookup.get(norm(p)));
+  const missing = parts.filter((p, i) => !resolved[i]);
+
+  if (parts.length > 1 && missing.length === 0){
+    const label = parts.join("+");
+    const arr = resolved.map(id => TARGETS_MAP[id]);
+
+    const hp = arr.reduce((s,t)=>s + (+t.hp || 0), 0);
+    const shield = arr.reduce((s,t)=>s + (+t.shield || 0), 0);
+    const dr = arr[0]?.dr ?? 0;
+
+    out.push({ name: label, target: arr, hp, shield, dr });
+  } else {
+    console.warn("[warn] DEFAULT_MULTI_TARGET skipped (missing shield ids/labels):", { parts, missing });
+  }
+
+  return out;
+}
+
+const TARGET_SCENARIOS = buildTargetScenarios(TARGETS);
+
 
 const {
   clamp01,
@@ -85,76 +166,105 @@ function parseArgs(argv){
 
 const OPT = parseArgs(process.argv);
 console.log("Preset generation options:", OPT);
-const PRECOMP_TRIALS = 500000;
+const PRECOMP_TRIALS = (Number.isFinite(OPT.trials) && OPT.trials > 0) ? OPT.trials : 500000;
 const PRECOMP_CI = OPT.confidence ?? 0.95;
-
-// --------- patch (prepatch baseline) helpers ---------
-function _stripPatchMods(entry){
-  const out = {};
-  if (!entry || typeof entry !== "object") return out;
-  for (const [k, v] of Object.entries(entry)){
-    if (k === "compatible") continue;
-    if (v == null) continue;
-    if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
-  }
-  return out;
-}
-
-function _hasMeaningfulMods(entry){
-  const mods = _stripPatchMods(entry);
-  for (const v of Object.values(mods)){
-    if (typeof v === "number" && Number.isFinite(v) && v !== 0) return true;
-  }
-  return false;
-}
-
-function _weaponMatchesPattern(weaponName, pattern){
-  const wn = String(weaponName || "").toLowerCase();
-  const p = String(pattern || "").trim().toLowerCase();
-  if (!wn || !p) return false;
-  return wn === p || wn.includes(p);
-}
-
-// Build patch mods list per weapon (using "compatible" patterns similar to attachments)
-const patchModsByWeapon = new Map(); // weaponName -> [modsObj, modsObj, ...]
-const affectedWeapons = new Set();
-
-if (Array.isArray(patch) && patch.length){
-  for (const wpn of weapons){
-    const modsList = [];
-    for (const entry of patch){
-      const compat = Array.isArray(entry?.compatible) ? entry.compatible : [];
-      let match = false;
-      for (const pat of compat){
-        if (_weaponMatchesPattern(wpn.name, pat)){
-          match = true;
-          break;
-        }
-      }
-      if (!match) continue;
-
-      const mods = _stripPatchMods(entry);
-      if (Object.keys(mods).length){
-        modsList.push(mods);
-      }
-      if (_hasMeaningfulMods(entry)){
-        affectedWeapons.add(wpn.name);
-      }
-    }
-    if (modsList.length){
-      patchModsByWeapon.set(wpn.name, modsList);
-    }
-  }
-}
-
-if (affectedWeapons.size){
-  console.log(`[status] patch.json affects ${affectedWeapons.size} weapon(s):`, [...affectedWeapons].join(", "));
-} else if (Array.isArray(patch) && patch.length){
-  console.log("[status] patch.json loaded but no meaningful weapon changes detected.");
-}
 function meanCIFromSd(mu, sd, n, z){
   const se = sd / Math.sqrt(n);
   return [mu - z * se, mu + z * se];
+}
+
+function combosCountForTypes(typeMap){
+  if (!typeMap || !typeMap.keys) return 1;
+  let n = 1;
+  for (const t of typeMap.keys()){
+    const list = typeMap.get(t);
+    const k = Array.isArray(list) ? (1 + list.length) : 1;
+    n *= k;
+  }
+  return n;
+}
+
+function makeProgress(label, total){
+  const tty = !!process.stdout.isTTY;
+  const barWidth = 24;
+  let lastRenderAt = 0;
+  let lastLen = 0;
+
+  const startAt = Date.now();
+  let lastAt = startAt;
+  let lastDone = 0;
+  let emaRate = null; // items per ms
+
+  function fmtDur(ms){
+    if (!Number.isFinite(ms) || ms < 0) return "--";
+    const s = Math.round(ms / 1000);
+    const hh = Math.floor(s / 3600);
+    const mm = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    if (hh > 0) return `${hh}h${String(mm).padStart(2, "0")}m${String(ss).padStart(2, "0")}s`;
+    if (mm > 0) return `${mm}m${String(ss).padStart(2, "0")}s`;
+    return `${ss}s`;
+  }
+
+  function render(done){
+    if (!tty) return;
+    const now = Date.now();
+    if (now - lastRenderAt < 80) return; // throttle
+    lastRenderAt = now;
+
+    // Update rate estimate
+    const dt = now - lastAt;
+    const dd = done - lastDone;
+    if (dt > 0 && dd > 0){
+      const inst = dd / dt; // items per ms
+      emaRate = (emaRate == null) ? inst : (emaRate * 0.85 + inst * 0.15);
+    }
+    lastAt = now;
+    lastDone = done;
+
+    const hasTotal = Number.isFinite(total) && total > 0;
+    const pct = hasTotal ? Math.max(0, Math.min(1, done / total)) : 0;
+    const filled = hasTotal ? Math.round(pct * barWidth) : 0;
+    const bar = `[${"#".repeat(filled)}${".".repeat(barWidth - filled)}]`;
+    const pctTxt = hasTotal ? `${String(Math.floor(pct * 100)).padStart(3, " ")}%` : "   ";
+    const countTxt = hasTotal ? `${done}/${total}` : `${done}`;
+
+    const elapsedMs = now - startAt;
+    const etaMs = (hasTotal && emaRate && emaRate > 0)
+      ? ((total - done) / emaRate)
+      : NaN;
+    const timeTxt = `ETA ${fmtDur(etaMs)} · ${fmtDur(elapsedMs)}`;
+
+    const msg = `${label} ${bar} ${pctTxt} ${countTxt} · ${timeTxt}`;
+
+    // Clear any leftover characters from a previous longer line.
+    const pad = Math.max(0, lastLen - msg.length);
+    process.stdout.write(`\r${msg}${" ".repeat(pad)}`);
+    lastLen = msg.length;
+  }
+
+  function done(finalMsg){
+    if (!tty) return;
+    const elapsedMs = Date.now() - startAt;
+    const msg = finalMsg || `${label} done · ${fmtDur(elapsedMs)}`;
+    const pad = Math.max(0, lastLen - msg.length);
+    process.stdout.write(`\r${msg}${" ".repeat(pad)}\n`);
+    lastLen = 0;
+  }
+
+  return { render, done, tty };
+}
+
+// Stable 32-bit hash for deterministic RNG seeding per row key
+function hash32(str){
+  // FNV-1a 32-bit
+  let h = 0x811c9dc5;
+  const s = String(str || "");
+  for (let i = 0; i < s.length; i++){
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 // zForCL, mean, stddev, quantileCI, mulberry32, percentile imported from SimCore
 function maxTier(w) {
@@ -204,47 +314,53 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
   const pLimbs = w.limbs / sum;
   const z = zForCL(ciLevel);
   const attByWeapon = groupAttachmentsByWeapon(attachments);
-const filterWeaponsSet = opt?.filterWeaponsSet || null; // Set of weapon names to include (others skipped)
-const isPrepatch = !!opt?.prepatch;
-const patchMap = opt?.patchModsByWeapon || patchModsByWeapon;
+  const filterWeaponsSet = opt?.filterWeaponsSet || null;
+  const isPrepatch = !!opt?.prepatch;
+  const patchMapLocal = opt?.patchMap || patchMap;
+
+  const scenarioCount = TARGET_SCENARIOS.length;
+  let expectedTotal = 0;
+  for (const wpn of weapons){
+    if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
+    const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
+    const tiers = maxTier(wpn);
+    expectedTotal += tiers * combosCountForTypes(tmap) * scenarioCount;
+  }
+  const progress = makeProgress(`[status] ${profileName}${isPrepatch ? " (prepatch)" : ""}:`, expectedTotal);
 
   const rows = [];
-  let rowIndex = 0;
   let totalConfigs = 0;
 
   for (const wpn of weapons) {
+    if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
     const base0 = buildWeaponBase(wpn);
     const base = { ...base0, attachments: "none" };
 
     const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
     const combos = combosForTypes(tmap);
 
-const tiers = maxTier(wpn);
-const allowThisWeapon = (!filterWeaponsSet) || filterWeaponsSet.has(wpn.name);
-const targetNames = Object.keys(TARGETS);
-const skipConfigs = (tiers * combos.length * targetNames.length) | 0;
-
-if (!allowThisWeapon){
-  // Keep RNG alignment with the full-run generator by advancing rowIndex.
-  rowIndex += skipConfigs;
-  totalConfigs += skipConfigs;
-  continue;
-}
-
-// Apply "prepatch" baseline by reversing patch.json mods BEFORE tier mods and attachments.
-const preBase = (isPrepatch && patchMap && patchMap.get(wpn.name)?.length)
-  ? unapplyMods(base, patchMap.get(wpn.name))
-  : base;
+    const tiers = maxTier(wpn);
     for (let tier = 1; tier <= tiers; tier++) {
-      const tiered = applyTierMods(preBase, tier);
+      const patchTypeMap = getTypeMapForWeapon(patchMapLocal, wpn.name);
+      const patchItems = patchTypeMap ? patchTypeMap.get("patch") : null;
+      const baseForTier =
+        (isPrepatch && Array.isArray(patchItems) && patchItems.length)
+          ? unapplyMods(base, patchItems)
+          : base;
+      const tiered = applyTierMods(baseForTier, tier);
 
       for (const combo of combos) {
         const stats = applyAttachments(tiered, combo);
 
-        for (let i = 0; i < targetNames.length; i++) {
-          const tName = targetNames[i];
-          const tgt = TARGETS[tName];
-          const rng = mulberry32((seedBase + rowIndex * 1013904223) >>> 0);
+        const scenarios = TARGET_SCENARIOS;
+        for (let i = 0; i < scenarios.length; i++) {
+          const sc = scenarios[i];
+          const tName = sc.name;
+          const tgt = sc.target;
+          // Deterministic RNG seed per (preset profile, weapon, tier, attachments, target)
+          // so post-patch vs pre-patch comparisons don't drift when we filter weapons.
+          const rowKey = `${profileName}|${stats.weapon}|${tier}|${stats.attachments}|${tName}`;
+          const rng = mulberry32((seedBase ^ hash32(rowKey)) >>> 0);
           const ttks = [];
           const shotsArr = [];
           const reloadsArr = [];
@@ -330,7 +446,7 @@ const preBase = (isPrepatch && patchMap && patchMap.get(wpn.name)?.length)
             n_trials: trials,
 
             target: tName,
-            target_hp: tgt.hp, target_shield: tgt.shield, target_dr: tgt.dr,
+            target_hp: sc.hp, target_shield: sc.shield, target_dr: sc.dr,
 
             ttk_p50,
             ttk_p50_ci_low,
@@ -395,54 +511,64 @@ const preBase = (isPrepatch && patchMap && patchMap.get(wpn.name)?.length)
           row.n_trials = trials;
           row.ci_level = ciLevel;
           rows.push(row);
-
-          rowIndex++;
           totalConfigs++;
-          if (totalConfigs % 100 === 0) {
+          if (progress.tty){
+            progress.render(totalConfigs);
+          } else if (totalConfigs % 1000 === 0) {
             console.log(`[status] ${profileName}: processed ${totalConfigs} configs...`);
           }
         }
       }
     }
   }
-
+  if (progress.tty) progress.done(`[status] ${profileName}${isPrepatch ? " (prepatch)" : ""}: done (${totalConfigs})`);
   return rows;
 }
 
 function runPresetDeterministic(profileName, w, opt = {}){
   // Use interleaved deterministic sequence
-const filterWeaponsSet = opt?.filterWeaponsSet || null;
-const isPrepatch = !!opt?.prepatch;
-const patchMap = opt?.patchModsByWeapon || patchModsByWeapon;
   const seq = makeZoneSequence(w.body, w.head, w.limbs, 100);
   const attByWeapon = groupAttachmentsByWeapon(attachments);
+  const filterWeaponsSet = opt?.filterWeaponsSet || null;
+  const isPrepatch = !!opt?.prepatch;
+  const patchMapLocal = opt?.patchMap || patchMap;
+
+  const scenarioCount = TARGET_SCENARIOS.length;
+  let expectedTotal = 0;
+  for (const wpn of weapons){
+    if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
+    const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
+    const tiers = maxTier(wpn);
+    expectedTotal += tiers * combosCountForTypes(tmap) * scenarioCount;
+  }
+  const progress = makeProgress(`[status] ${profileName}${isPrepatch ? " (prepatch)" : ""}:`, expectedTotal);
 
   const rows = [];
   let totalConfigs = 0;
   for (const wpn of weapons) {
+    if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
+    if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
     const base0 = buildWeaponBase(wpn);
     const base = { ...base0, attachments: "none" };
 
     const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
     const combos = combosForTypes(tmap);
 
-const tiers = maxTier(wpn);
-const allowThisWeapon = (!filterWeaponsSet) || filterWeaponsSet.has(wpn.name);
-if (!allowThisWeapon){
-  continue;
-}
-
-// Apply "prepatch" baseline by reversing patch.json mods BEFORE tier mods and attachments.
-const preBase = (isPrepatch && patchMap && patchMap.get(wpn.name)?.length)
-  ? unapplyMods(base, patchMap.get(wpn.name))
-  : base;
+    const tiers = maxTier(wpn);
     for (let tier = 1; tier <= tiers; tier++) {
-      const tiered = applyTierMods(preBase, tier);
+      const patchTypeMap = getTypeMapForWeapon(patchMapLocal, wpn.name);
+      const patchItems = patchTypeMap ? patchTypeMap.get("patch") : null;
+      const baseForTier =
+        (isPrepatch && Array.isArray(patchItems) && patchItems.length)
+          ? unapplyMods(base, patchItems)
+          : base;
+      const tiered = applyTierMods(baseForTier, tier);
 
       for (const combo of combos) {
         const stats = applyAttachments(tiered, combo);
-        for (const tName of Object.keys(TARGETS)) {
-          const tgt = TARGETS[tName];
+        for (const sc of TARGET_SCENARIOS) {
+          const tName = sc.name;
+          const tgt = sc.target;
           const shotsInfo = shotsToKillWithSeq(stats, tgt, seq);
 
           // What the UI should display as “shots”:
@@ -468,9 +594,9 @@ const preBase = (isPrepatch && patchMap && patchMap.get(wpn.name)?.length)
             acc_limbs: w.limbs,
 
             target: tName,
-            target_hp: tgt.hp,
-            target_shield: tgt.shield,
-            target_dr: tgt.dr,
+            target_hp: sc.hp,
+            target_shield: sc.shield,
+            target_dr: sc.dr,
 
             // Deterministic base value
             ttk_s: ttk,
@@ -510,13 +636,16 @@ const preBase = (isPrepatch && patchMap && patchMap.get(wpn.name)?.length)
             miss: 0,
           });
           totalConfigs++;
-          if (totalConfigs % 100 === 0) {
+          if (progress.tty){
+            progress.render(totalConfigs);
+          } else if (totalConfigs % 1000 === 0) {
             console.log(`[status] ${profileName}: processed ${totalConfigs} configs...`);
           }
         }
       }
     }
   }
+  if (progress.tty) progress.done(`[status] ${profileName}${isPrepatch ? " (prepatch)" : ""}: done (${totalConfigs})`);
   return rows;
 }
 
@@ -592,28 +721,32 @@ for (const p of presets) {
 
   // write the actual precomputed data for the website
   writeJSON(path.join("data/presets", p.file), rows);
-// Also generate "prepatch" variants for weapons affected by patch.json
-if (affectedWeapons.size){
-  console.log(`[status] Generating prepatch preset: ${p.id} (${p.profile})`);
-  const preRows = p.mode === "mc"
-    ? runPresetMonteCarlo(p.profile, p.w, p.trials, p.ci, p.seed, p.miss, {
-        filterWeaponsSet: affectedWeapons,
-        prepatch: true,
-        patchModsByWeapon
-      })
-    : runPresetDeterministic(p.profile, p.w, {
-        filterWeaponsSet: affectedWeapons,
-        prepatch: true,
-        patchModsByWeapon
-      });
-
-  writeJSON(path.join("data/presets/prepatch", p.file), preRows);
-  console.log(`[status] Wrote prepatch/${p.file}: ${preRows.length} rows`);
-}
   console.log(`[status] Wrote ${p.file}: ${rows.length} rows`);
 
   if (p.profile === "Body only") bodyRows = rows;
   if (p.profile === "Typical") typicalRows = rows;
+}
+
+// ---- Pre-patch baselines (subset of weapons affected by data/patch.json) ----
+// Stored as `data/presets/prepatch/<preset_file>.json` and loaded by the web UI for delta arrows.
+const affectedWeapons = new Set();
+for (const w of weapons){
+  const tm = getTypeMapForWeapon(patchMap, w.name);
+  const arr = tm ? tm.get("patch") : null;
+  if (Array.isArray(arr) && arr.length) affectedWeapons.add(w.name);
+}
+if (affectedWeapons.size){
+  console.log(`[status] Generating prepatch baselines for ${affectedWeapons.size} affected weapons...`);
+  for (const p of presets){
+    console.log(`[status] Prepatch: ${p.id} (${p.profile})`);
+    const preRows = p.mode === "mc"
+      ? runPresetMonteCarlo(p.profile, p.w, p.trials, p.ci, p.seed, p.miss, { prepatch:true, filterWeaponsSet: affectedWeapons, patchMap })
+      : runPresetDeterministic(p.profile, p.w, { prepatch:true, filterWeaponsSet: affectedWeapons, patchMap });
+    writeJSON(path.join("data/presets/prepatch", p.file), preRows);
+    console.log(`[status] Wrote prepatch/${p.file}: ${preRows.length} rows`);
+  }
+} else {
+  console.log("[status] No patch.json deltas found (or no compatible weapons). Skipping prepatch preset generation.");
 }
 
 // Optional sanity check comparing Typical vs Body only

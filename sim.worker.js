@@ -301,14 +301,53 @@ configs.push({ weapon:w.name, tier:t, attachments:stats.attachments, stats, stat
     // If target is "ALL" (or missing), simulate all shields.
     // You can also pass params.targets = ["NoShield","Light",...]
     const targetsMap = shields || TARGETS;
-    const targetList = doFullSweep
-      ? Object.keys(targetsMap)
-      : (Array.isArray(targets)
-          ? targets
-          : (target === "ALL" || target == null ? Object.keys(targetsMap) : [target]));
+
+    // Composite multi-target scenario (also included in full sweeps)
+    // Can be overridden by the UI via params.multiTarget = ["Medium","Light",...]
+    let DEFAULT_MULTI_TARGET = ["Medium","Light","Light"];
+    if (params && Array.isArray(params.multiTarget)){
+      const parts = params.multiTarget.map(x => String(x || "").trim()).filter(Boolean);
+      if (parts.length > 1 && parts.every(p => (targetsMap && targetsMap[p]))){
+        DEFAULT_MULTI_TARGET = parts;
+      }
+    }
+    const DEFAULT_MULTI_TARGET_NAME = DEFAULT_MULTI_TARGET.join("+");
+
+
+    // Multi-target scenario support:
+    // If target name contains '+', treat it as a sequential list, e.g. 'Medium+Light+Light'.
+    function resolveTargetSpec(tName){
+      const s = String(tName || "");
+      if (s.includes('+')){
+        const parts = s.split('+').map(x=>x.trim()).filter(Boolean);
+        return parts.map(p => {
+          const t = targetsMap[p];
+          if (!t) throw new Error(`Unknown target: ${p}`);
+          return t;
+        });
+      }
+      const t = targetsMap[s];
+      if (!t) throw new Error(`Unknown target: ${s}`);
+      return t;
+    }
+
+    let targetList;
+    if (doFullSweep){
+      targetList = Object.keys(targetsMap);
+      // Add the default multi-target scenario to the sweep list
+      if (!targetList.includes(DEFAULT_MULTI_TARGET_NAME)) targetList.push(DEFAULT_MULTI_TARGET_NAME);
+    } else if (Array.isArray(targets)){
+      targetList = targets;
+    } else if (target === "ALL" || target == null){
+      targetList = Object.keys(targetsMap);
+      if (!targetList.includes(DEFAULT_MULTI_TARGET_NAME)) targetList.push(DEFAULT_MULTI_TARGET_NAME);
+    } else {
+      targetList = [target];
+    }
 
     for (const tName of targetList){
-      if (!targetsMap[tName]) throw new Error(`Unknown target: ${tName}`);
+      // validate (also validates composite specs)
+      resolveTargetSpec(tName);
     }
     const total = configs.length * targetList.length;
     const rows = [];
@@ -320,7 +359,7 @@ configs.push({ weapon:w.name, tier:t, attachments:stats.attachments, stats, stat
 
       for (let ti = 0; ti < targetList.length; ti++){
         const targetName = targetList[ti];
-        const tgt = targetsMap[targetName];
+        const tgt = resolveTargetSpec(targetName);
 
         // Different deterministic RNG stream per (config, target)
         const rng = mulberry32((seed + i*1013904223 + ti*374761393) >>> 0);

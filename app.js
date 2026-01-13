@@ -46,6 +46,35 @@ function shieldLabel(id){
   return (SHIELDS && SHIELDS[id] && SHIELDS[id].label) ? SHIELDS[id].label : id;
 }
 
+
+function targetLabel(id){
+  const s = String(id || "");
+  if (s.includes("+")){
+    const parts = s.split("+").map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1){
+      // Multi-target: show count and shield labels
+      return `(${parts.length}) ${parts.map(p => shieldLabel(p)).join("+")}`;
+    }
+  }
+  // Single target: show shield label only
+  return shieldLabel(s);
+}
+
+
+function isMultiTargetId(id){
+  return String(id || "").includes("+");
+}
+
+// For chart autoscaling we want a stable scale across single-target presets,
+// but multi-target scenarios should not influence that scale unless a multi-target
+// is currently selected (and vice-versa).
+function getScalePoolRows(rows, selectedTargetId){
+  const sel = String(selectedTargetId ?? "").trim();
+  const wantMulti = isMultiTargetId(sel);
+  return (rows || []).filter(r => isMultiTargetId(r && r.target) === wantMulti);
+}
+
+
 const RARITY = {
   Legendary: ["Jupiter","Equalizer","Anvil Splitter","Aphelion"],
   Epic: ["Bobcat","Tempest","Vulcano","Bettina"],
@@ -251,7 +280,7 @@ function setSelectOptions(selectEl, values, preferredValue) {
   ]);
   const isTargetSelect = (selectEl && selectEl.id === "targetSelect");
   selectEl.innerHTML = values.map(v => {
-    const label = isTargetSelect ? shieldLabel(v) : v;
+    const label = isTargetSelect ? targetLabel(v) : v;
     return `<option value="${v}">${label}</option>`;
   }).join("");
   if (values.includes(cur)) selectEl.value = cur;
@@ -440,6 +469,8 @@ let worker = null;
 let sortKey = "ttk";
 let sortDir = "asc"; // "asc" or "desc"
 let lastCustomParams = null;
+let lastCustomTargetPreference = null;
+let lastCustomMultiTargetId = null;
 const UI_STATE_KEY = "arc_ui_state_v2"; // bump version so old bad state doesn't fight you
 let isRestoring = true;
 let savedTierSelection = null;  // array of tier numbers
@@ -468,6 +499,81 @@ function simCacheSet(key, value){
 const WEAPONS_OVERRIDE_KEY = "arc_sim_weapons_override_v1";
 const SHIELDS_OVERRIDE_KEY = "arc_sim_shields_override_v1";
 const ATTACH_OVERRIDE_KEY  = "arc_sim_attachments_override_v1";
+
+// User-editable multi-target default profile (custom simulations only)
+const MULTI_TARGET_PROFILE_KEY = "arc_sim_multi_target_profile_v1";
+const DEFAULT_MULTI_TARGET_PROFILE = ["Medium","Light","Light"];
+
+// Resolve user-entered shield tokens to canonical shield ids.
+// Accepts ids or labels, and ignores whitespace inside the token (e.g. "No Shield" => "NoShield").
+function resolveShieldIdLoose(token){
+  const raw = String(token || "").trim();
+  if (!raw) return "";
+
+  // Collapse all whitespace inside the token.
+  const collapsed = raw.replace(/\s+/g, "");
+
+  // If shields aren't loaded yet, best-effort normalize by removing spaces.
+  if (!SHIELDS) return collapsed;
+
+  // Fast paths.
+  if (SHIELDS[raw]) return raw;
+  if (SHIELDS[collapsed]) return collapsed;
+
+  const want = collapsed.toLowerCase();
+  for (const [id, s] of Object.entries(SHIELDS || {})){
+    if (String(id).replace(/\s+/g, "").toLowerCase() === want) return id;
+    if (String(s?.label || "").replace(/\s+/g, "").toLowerCase() === want) return id;
+  }
+
+  // Unknown: return the collapsed token so validation can surface it.
+  return collapsed;
+}
+
+function normalizeMultiTargetProfile(arr){
+  const parts = (Array.isArray(arr) ? arr : [])
+    .map(x => resolveShieldIdLoose(x))
+    .filter(Boolean);
+  // Must contain >=2 targets
+  if (parts.length <= 1) return null;
+  // If shields are loaded, validate ids
+  if (SHIELDS){
+    const ok = parts.every(p => !!SHIELDS[p]);
+    if (!ok) return null;
+  }
+  return parts;
+}
+
+function getMultiTargetProfile(){
+  try{
+    const raw = localStorage.getItem(MULTI_TARGET_PROFILE_KEY);
+    if (raw){
+      const parsed = JSON.parse(raw);
+      const norm = normalizeMultiTargetProfile(parsed);
+      if (norm) return norm;
+    }
+  }catch{}
+  // Default (and validate once shields are available)
+  return normalizeMultiTargetProfile(DEFAULT_MULTI_TARGET_PROFILE) || DEFAULT_MULTI_TARGET_PROFILE.slice();
+}
+
+function setMultiTargetProfile(profileArr){
+  const norm = normalizeMultiTargetProfile(profileArr);
+  if (!norm) throw new Error("Invalid multi-target profile");
+  localStorage.setItem(MULTI_TARGET_PROFILE_KEY, JSON.stringify(norm));
+}
+
+function multiTargetIdFromProfile(profileArr){
+  const parts = normalizeMultiTargetProfile(profileArr) || DEFAULT_MULTI_TARGET_PROFILE;
+  return parts.join("+");
+}
+
+function updateMultiTargetsHint(){
+  const hint = $("multiTargetsHint");
+  if (!hint) return;
+  const id = multiTargetIdFromProfile(getMultiTargetProfile());
+  hint.textContent = `Current: ${targetLabel(id)}`;
+}
 
 function getOverride(key){
   try{
@@ -1203,7 +1309,7 @@ function render(){
     // Order bars by selected ordering metric (ascending)
     items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
     const M = getMetricDef(uiState.graphMetric || "ttk");
-    const scaleRows = currentRows.filter(r => r.weapon === W);
+    const scaleRows = getScalePoolRows(currentRows, $("targetSelect")?.value ?? savedTarget).filter(r => r.weapon === W);
     const autoMaxHigh = maxWhiskerFromRows(scaleRows, M);
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · by tier · ${((uiState.compareTierValues||"best")==="base")?"base only":"best attachments"} · showing ${M.label}`,
@@ -1252,7 +1358,7 @@ function render(){
     // Order bars by selected ordering metric (ascending)
     items.sort((a,b)=> (Number.isFinite(a._order) ? a._order : Infinity) - (Number.isFinite(b._order) ? b._order : Infinity));
 
-    const scaleRows2 = currentRows.filter(r => r.weapon === W);
+    const scaleRows2 = getScalePoolRows(currentRows, $("targetSelect")?.value ?? savedTarget).filter(r => r.weapon === W);
     const autoMaxHigh2 = maxWhiskerFromRows(scaleRows2, M);
     drawHBarChart("compareChart", "compareTooltip", "compareMeta", items, {
       titleRight: `${W} · Tier ${t} · by attachments · showing ${M.label}`,
@@ -1792,6 +1898,9 @@ async function init(){
       }
       setCustomTitle(lastCustomParams || {});
       $("presetSelect").value = "__custom__";
+      // Prefer the multi-target row for custom sims if the user previously had a multi-target selected
+      if (lastCustomTargetPreference === "__multi__") preferredTargetOverride = lastCustomMultiTargetId;
+      else if (lastCustomTargetPreference) preferredTargetOverride = lastCustomTargetPreference;
       syncTargetTierFromRows(currentRows);
       setStatus(`Done. Rows: ${currentRows.length}`);
       $("downloadBtn").disabled = false;
@@ -1824,6 +1933,10 @@ async function init(){
   initWeaponsEditor();
   updateOverrideCue();
 
+  // init multi-target editor + hint
+  initMultiTargetsEditor();
+  updateMultiTargetsHint();
+
   // Info modal wiring
   const infoBtn = $("infoBtn");
   const infoModal = $("infoModal");
@@ -1844,7 +1957,11 @@ async function runCustomSim(){
     setStatus("");
     $("runBtn").disabled = true;
 
-    const target = $("targetSelect").value;
+    const prevTarget = $("targetSelect").value;
+    const multiTargetProfile = getMultiTargetProfile();
+    const multiTargetId = multiTargetIdFromProfile(multiTargetProfile);
+    lastCustomMultiTargetId = multiTargetId;
+    lastCustomTargetPreference = isMultiTargetId(prevTarget) ? "__multi__" : prevTarget;
     const tiers = getSelectedTiers();
 
     const head = clamp01((+$("headPct").value)/100);
@@ -1856,7 +1973,7 @@ async function runCustomSim(){
     const seed = (+$("seed").value || 1337) >>> 0;
     const confidence = parseFloat($("confidence").value || "0.95");
 
-    const params = { target: "ALL", tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence, fullSweep: true };
+    const params = { target: "ALL", tiers, body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), trials, seed, confidence, fullSweep: true, multiTarget: multiTargetProfile };
     lastCustomParams = { body:+body.toFixed(4), head:+head.toFixed(4), limbs:+limbs.toFixed(4), miss:+miss.toFixed(4), tiers, trials, confidence };
 
     // Include current overrides signature in the cache key so changes bypass cache
@@ -1885,6 +2002,9 @@ async function runCustomSim(){
       setStatus("Loaded from session cache.");
       $("downloadBtn").disabled = false;
       $("runBtn").disabled = false;
+      // Keep target selection stable across custom sims
+      if (lastCustomTargetPreference === "__multi__") preferredTargetOverride = lastCustomMultiTargetId;
+      else if (lastCustomTargetPreference) preferredTargetOverride = lastCustomTargetPreference;
       syncTargetTierFromRows(currentRows);
       render();
       return;
@@ -2071,6 +2191,100 @@ function initWeaponsEditor(){
       showStatus('Loaded file into editor. Remember to Validate and Save override.');
     }catch(err){
       showStatus('Import failed: ' + String(err?.message || err));
+    }
+  });
+}
+
+function initMultiTargetsEditor(){
+  const modal = $("multiTargetsModal");
+  const openBtn = $("editMultiTargetsBtn");
+  const closeBtn = $("closeMultiTargetsModal");
+  const saveBtn = $("saveMultiTargetsBtn");
+  const resetBtn = $("resetMultiTargetsBtn");
+  const editor = $("multiTargetsEditor");
+  const status = $("multiTargetsModalStatus");
+  const avail = $("multiTargetsAvailable");
+
+  if (!modal || !openBtn || openBtn._bound) return;
+  openBtn._bound = true;
+
+  function showStatus(t){ if(status) status.textContent = t || ""; }
+  function open(){ modal.style.display = "flex"; modal.classList.remove("hidden"); }
+  function close(){ modal.style.display = "none"; modal.classList.add("hidden"); }
+
+  function parseProfile(text){
+    const s = String(text || "").trim();
+    if (!s) return [];
+    // If the user used explicit separators (+, comma, newlines), don't treat spaces as separators.
+    // That allows labels like "No Shield".
+    const hasExplicitSep = /[+,\n\r\t]/.test(s);
+    const rawParts = s.split(hasExplicitSep ? /[+,\n\r\t]+/g : /\s+/g);
+    return rawParts.map(p => resolveShieldIdLoose(p)).filter(Boolean);
+  }
+
+  function validateParts(parts){
+    if (!Array.isArray(parts) || parts.length <= 1) return "Please provide at least 2 shields.";
+    if (SHIELDS){
+      const unknown = parts.filter(p => !SHIELDS[p]);
+      if (unknown.length) return `Unknown shield id(s): ${unknown.join(", ")}`;
+    }
+    return null;
+  }
+
+  function refreshAvail(){
+    if (!avail) return;
+    const ids = Array.isArray(SHIELD_ORDER) && SHIELD_ORDER.length ? SHIELD_ORDER : Object.keys(SHIELDS || {});
+    avail.textContent = ids.join(", ");
+  }
+
+  function refreshPreview(){
+    if (!editor) return;
+    const parts = parseProfile(editor.value);
+    const err = validateParts(parts);
+    if (err){
+      showStatus(err);
+      return false;
+    }
+    const id = parts.join("+");
+    showStatus(`Preview: ${targetLabel(id)}`);
+    return true;
+  }
+
+  openBtn.addEventListener("click", () => {
+    const prof = getMultiTargetProfile();
+    if (editor) editor.value = prof.join("+");
+    refreshAvail();
+    refreshPreview();
+    open();
+  });
+
+  closeBtn?.addEventListener("click", close);
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+  editor?.addEventListener("input", refreshPreview);
+
+  resetBtn?.addEventListener("click", () => {
+    try{
+      localStorage.removeItem(MULTI_TARGET_PROFILE_KEY);
+      if (editor) editor.value = DEFAULT_MULTI_TARGET_PROFILE.join("+");
+      refreshAvail();
+      refreshPreview();
+      updateMultiTargetsHint();
+    }catch{}
+  });
+
+  saveBtn?.addEventListener("click", () => {
+    try{
+      const parts = parseProfile(editor?.value);
+      const err = validateParts(parts);
+      if (err){ showStatus(err); return; }
+      setMultiTargetProfile(parts);
+      updateMultiTargetsHint();
+      showStatus("Saved. Run a new custom simulation to apply.");
+      close();
+    }catch(e){
+      showStatus("Save failed: " + String(e?.message || e));
     }
   });
 }
@@ -2583,7 +2797,7 @@ function drawBestPerWeaponChart(rowsFiltered){
       detail: `Tier ${r.tier}${tierPlus ? "+" : ""} · ${(r.attachments || "none")}`,
     };
   }).filter(it => it && Number.isFinite(it.mean));
-  const autoMaxHigh = maxWhiskerFromRows(currentRows, M);
+  const autoMaxHigh = maxWhiskerFromRows(getScalePoolRows(currentRows, $("targetSelect")?.value ?? savedTarget), M);
   drawHBarChart("ttkChart", "chartTooltip", "chartMeta", items, {
     titleRight: `${items.length} weapons · showing ${M.label}`,
     unit: M.unit,
