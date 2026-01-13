@@ -1,9 +1,14 @@
 const $ = (id) => document.getElementById(id);
 
 const PATH_PRESETS = "data/presets/";
+const PATH_PREPATCH_PRESETS = PATH_PRESETS + "prepatch/";
+let prepatchRows = null;
+let prepatchMap = null;
+
 const FILE_WEAPONS = "data/weapons.json";
 const FILE_ATTACH = "data/attachments.json";
 const FILE_SHIELDS = "data/shields.json";
+const FILE_PATCH = "data/patch.json";
 
 // Shields normalization and globals
 let SHIELDS = null;          // map id -> {name,hp,shield,dr,label}
@@ -172,6 +177,69 @@ async function fetchJSON(relPath){
   return await r.json();
 }
 
+async function fetchJSONMaybe(relPath){
+  try{ return await fetchJSON(relPath); }
+  catch{ return null; }
+}
+
+function attKeyForRow(r){
+  const a = (r && (r._attKey ?? r.attachments)) ?? "none";
+  const s = String(a || "none").trim();
+  return s || "none";
+}
+
+function prepatchKey(r){
+  return `${r.weapon}|${Number(r.tier)||0}|${r.target}|${attKeyForRow(r)}`;
+}
+
+function buildPrepatchMap(rows){
+  const m = new Map();
+  for (const r of (rows || [])){
+    if (!r || !r.weapon) continue;
+    m.set(prepatchKey(r), r);
+  }
+  return m;
+}
+
+function getPrepatchRow(r){
+  if (!prepatchMap || !r) return null;
+  return prepatchMap.get(prepatchKey(r)) || null;
+}
+
+// delta helpers (lower is always better)
+function deltaTolerance(metricKey){
+  const tolTier = Number.isFinite(uiState?.tierTtkTol) ? Number(uiState.tierTtkTol) : 0;
+  const tolStack = Number($("stackTol")?.value || 0);
+  const timeTol = Math.max(0, tolTier, tolStack);
+  if (metricKey === "ttk" || metricKey === "fire_time" || metricKey === "reload_time") return timeTol;
+  // counts (shots/reloads) are typically near-integers; avoid noise
+  return 0.01;
+}
+
+function makeDeltaInfo(post, pre, metricKey){
+  if (!Number.isFinite(post) || !Number.isFinite(pre)) return null;
+  const tol = deltaTolerance(metricKey);
+  const diff = post - pre; // negative = improved after patch
+  if (Math.abs(diff) <= tol) return null;
+  const dir = (diff < 0) ? "up" : "down";
+  const pct = (pre !== 0) ? (diff / pre) * 100 : NaN;
+  return { dir, diff, pct, pre, post };
+}
+
+function fmtSigned(x, d=3){
+  if (!Number.isFinite(x)) return "";
+  const s = fmtN(Math.abs(x), d);
+  return (x > 0 ? `+${s}` : x < 0 ? `-${s}` : `0`);
+}
+
+function deltaTooltipText(d, unit){
+  const u = unit || "";
+  const abs = `${fmtSigned(d.diff, 3)}${u}`;
+  const pctTxt = Number.isFinite(d.pct) ? ` (${fmtSigned(d.pct, 1)}%)` : "";
+  return `pre-patch ${fmtN(d.pre,3)}${u} · Δ ${abs}${pctTxt}`;
+}
+
+
 function setSelectOptions(selectEl, values, preferredValue) {
   const cur = preferredValue ?? selectEl.value;
   // Pretty label mapping for target select
@@ -280,21 +348,19 @@ async function loadPresetById(presetId){
   const p = window._presetById?.get(presetId);
   if(!p) return;
   try{
-    if(p.kind === "custom"){
-      currentRows = window.lastCustomRows || [];
-      const presetName = p.name;
-      const meta = presetMetaFromRows(currentRows);
-      $("heading").textContent = meta ? `Best TTK — ${presetName} · ${meta}` : `Best TTK — ${presetName}`;
-      document.title = meta ? `ARC Raiders — ${presetName} · ${meta}` : `ARC Raiders — ${presetName}`;
-      ensureTargetTierOptions(currentRows);
-      setStatus("");
-      render();
-      if(!isRestoring) saveUIState(collectUIState());
-      return;
+    currentRows = p.kind === "custom" ? window.lastCustomRows : await fetchJSON(PATH_PRESETS + p.file);
+
+    // Optional: load matching pre-patch preset (same filename, in presets/prepatch/)
+    prepatchRows = null;
+    prepatchMap = null;
+    if (p.kind !== "custom" && p.file){
+      const pre = await fetchJSONMaybe(PATH_PREPATCH_PRESETS + p.file);
+      if (pre && Array.isArray(pre) && pre.length){
+        prepatchRows = pre;
+        prepatchMap = buildPrepatchMap(prepatchRows);
+      }
     }
 
-    // precomputed
-    currentRows = await fetchJSON(PATH_PRESETS + p.file);
     const presetName = p.name;
     const meta = presetMetaFromRows(currentRows);
     $("heading").textContent = meta ? `Best TTK — ${presetName} · ${meta}` : `Best TTK — ${presetName}`;
@@ -307,6 +373,7 @@ async function loadPresetById(presetId){
     setStatus(`❌ Failed to load ${p.file}: ${e?.message || e}`);
   }
 }
+
 
 function setStatus(msg){ $("status").textContent = msg || ""; }
 
@@ -388,9 +455,9 @@ let pendingSimCacheKey = null;
 function simCacheGet(key){
   return SIM_CACHE.get(key) || null;
 }
-function simCacheSet(key, rows){
+function simCacheSet(key, value){
   if (SIM_CACHE.has(key)) SIM_CACHE.delete(key);
-  SIM_CACHE.set(key, rows);
+  SIM_CACHE.set(key, value);
   while (SIM_CACHE.size > 3){
     const firstKey = SIM_CACHE.keys().next().value;
     SIM_CACHE.delete(firstKey);
@@ -795,7 +862,7 @@ function fmtN(x, d=3){
   const p = 10**d;
   return (Math.round(x*p)/p).toFixed(d);
 }
-function renderStatCell(main, unit, sd, ciHalf){
+function renderStatCell(main, unit, sd, ciHalf, delta){
   const mainTxt = Number.isFinite(main) ? `${fmtN(main, 3)}${unit}` : "";
   const sdPart = Number.isFinite(sd) ? `σ ±${fmtN(sd, 3)}${unit}` : "";
   const ciPart = Number.isFinite(ciHalf)
@@ -805,8 +872,14 @@ function renderStatCell(main, unit, sd, ciHalf){
     ? `${sdPart} - ${ciPart}`
     : (sdPart || ciPart);
   const sub = combo ? `<div class="sub">${combo}</div>` : "";
-  return `<div>${mainTxt}</div>${sub}`;
+
+  const arrow = (delta && delta.dir)
+    ? `<span class="deltaArrow ${delta.dir === "up" ? "deltaUp" : "deltaDown"}" data-tip="${escapeHtml(deltaTooltipText(delta, unit))}" aria-label="${escapeHtml(deltaTooltipText(delta, unit))}" tabindex="0">${delta.dir === "up" ? "▲" : "▼"}</span>`
+    : `<span class="deltaArrow deltaNone" aria-hidden="true">▲</span>`;
+
+  return `<div class="cellMain">${arrow}<span>${mainTxt}</span></div>${sub}`;
 }
+
 
 function attachmentRank(attName){
   if(!attName || attName==="none") return 0;
@@ -875,6 +948,7 @@ function stackEquivalent(rows, tol){
   const out = [];
   for(const g of groups.values()){
     const rep = { ...g.rep };
+    rep._attKey = (g.rep.attachments || "none");
     if(g.variants.length > 1){
       rep._variants = g.variants.map(v => v.attachments);
       rep.attachments = `${rep.attachments} (+${g.variants.length - 1} variants)`;
@@ -1107,9 +1181,13 @@ function render(){
       const stats = extractMetricStats(best, uiState.graphMetric || "ttk");
       if (!stats) continue;
       const { mean, median, sd } = stats;
+      const pr2 = getPrepatchRow(best);
+      const preMean2 = pr2 ? Number(extractMetricStats(pr2, uiState.graphMetric || "ttk")?.mean) : NaN;
+      const delta = makeDeltaInfo(mean, preMean2, uiState.graphMetric || "ttk");
       items.push({
         label: `Tier ${t}`,
         mean,
+        delta,
         p50: median,
         sd,
 	        detail: (cv === "base")
@@ -1154,9 +1232,14 @@ function render(){
       if (!stats) return null;
       const { mean, median, sd } = stats;
 
+      const pr2 = getPrepatchRow(r);
+      const preMean2 = pr2 ? Number(extractMetricStats(pr2, uiState.graphMetric || "ttk")?.mean) : NaN;
+      const delta = makeDeltaInfo(mean, preMean2, uiState.graphMetric || "ttk");
+
       return {
         label: r.attachments || "none",
         mean,
+        delta,
         p50: median,
         sd,
         detail: `Tier ${t}`,
@@ -1204,7 +1287,12 @@ function render(){
     const ttk = tableTTK(r);
     const ttkSd = Number(r.ttk_std);
     const ttkCi = getCiHalfForTable(r, "ttk");
-    const ttkExtra = renderStatCell(ttk, "s", ttkSd, ttkCi);
+
+    // Pre-patch deltas (if available)
+    const pr = getPrepatchRow(r);
+    const dTtk = pr ? makeDeltaInfo(ttk, tableTTK(pr), "ttk") : null;
+
+    const ttkExtra = renderStatCell(ttk, "s", ttkSd, ttkCi, dTtk);
 
     const variants = r._variants && r._variants.length ? r._variants : null;
     const attCell = variants
@@ -1216,6 +1304,11 @@ function render(){
     const fireMain  = tableFireTimeSpent(r);
     const relMain   = tableReloads(r);
     const rldMain   = tableReloadTimeSpent(r);
+
+    const dShots = pr ? makeDeltaInfo(shotsMain, tableShots(pr), "shots") : null;
+    const dFire  = pr ? makeDeltaInfo(fireMain, tableFireTimeSpent(pr), "fire_time") : null;
+    const dRel   = pr ? makeDeltaInfo(relMain, tableReloads(pr), "reloads") : null;
+    const dRld   = pr ? makeDeltaInfo(rldMain, tableReloadTimeSpent(pr), "reload_time") : null;
     // dps and CI columns removed per request
 
     function romanTier(n){
@@ -1230,10 +1323,10 @@ function render(){
       <td class="num">${r.tier}</td>
       <td>${attCell}</td>
       <td class="num">${ttkExtra}</td>
-      <td class="num">${renderStatCell(shotsMain, "", Number(r.shots_std), getCiHalfForTable(r, "shots"))}</td>
-      <td class="num">${renderStatCell(fireMain, "s", Number(r.fire_time_std), getCiHalfForTable(r, "fire_time"))}</td>
-      <td class="num">${renderStatCell(relMain, "", Number(r.reloads_std), getCiHalfForTable(r, "reloads"))}</td>
-      <td class="num">${renderStatCell(rldMain, "s", Number(r.reload_time_std), getCiHalfForTable(r, "reload_time"))}</td>
+      <td class="num">${renderStatCell(shotsMain, "", Number(r.shots_std), getCiHalfForTable(r, "shots"), dShots)}</td>
+      <td class="num">${renderStatCell(fireMain, "s", Number(r.fire_time_std), getCiHalfForTable(r, "fire_time"), dFire)}</td>
+      <td class="num">${renderStatCell(relMain, "", Number(r.reloads_std), getCiHalfForTable(r, "reloads"), dRel)}</td>
+      <td class="num">${renderStatCell(rldMain, "s", Number(r.reload_time_std), getCiHalfForTable(r, "reload_time"), dRld)}</td>
       
     `;
     tbody.appendChild(tr);
@@ -1277,6 +1370,107 @@ function escapeHtml(s){
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
 }
+// Custom tooltip for pre-patch delta arrows (table + any HTML labels)
+function initDeltaArrowTooltips(){
+  let tip = document.getElementById("deltaTooltip");
+  if(!tip){
+    tip = document.createElement("div");
+    tip.id = "deltaTooltip";
+    tip.className = "chartTooltip";
+    tip.style.display = "none";
+    document.body.appendChild(tip);
+  }
+
+  let activeEl = null;
+
+  function clampPos(clientX, clientY){
+    const pad = 12;
+    // Put somewhere first so getBoundingClientRect is valid
+    tip.style.left = "-9999px";
+    tip.style.top = "-9999px";
+
+    const rect = tip.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+
+    let x = clientX + pad;
+    let y = clientY + pad;
+
+    if (x + rect.width + 8 > vw) x = Math.max(8, vw - rect.width - 8);
+    if (y + rect.height + 8 > vh) y = Math.max(8, vh - rect.height - 8);
+
+    tip.style.left = `${x}px`;
+    tip.style.top = `${y}px`;
+  }
+
+  function show(el, clientX, clientY){
+    const txt = el?.getAttribute?.("data-tip") || el?.getAttribute?.("title") || "";
+    if(!txt) return;
+    tip.textContent = txt;
+    tip.style.display = "block";
+    clampPos(clientX, clientY);
+  }
+
+  function hide(){
+    tip.style.display = "none";
+    activeEl = null;
+  }
+
+  // Pointer-based hover (works for mouse + pen)
+  document.addEventListener("pointerover", (e)=>{
+    const el = e.target?.closest?.(".deltaArrow");
+    if(!el) return;
+    activeEl = el;
+    show(el, e.clientX, e.clientY);
+  }, true);
+
+  document.addEventListener("pointermove", (e)=>{
+    if(!activeEl) return;
+    show(activeEl, e.clientX, e.clientY);
+  }, true);
+
+  document.addEventListener("pointerout", (e)=>{
+    const el = e.target?.closest?.(".deltaArrow");
+    if(!el) return;
+    if(activeEl === el) hide();
+  }, true);
+
+  // Touch/click: toggle tooltip
+  document.addEventListener("click", (e)=>{
+    const el = e.target?.closest?.(".deltaArrow");
+    if(!el){
+      if(activeEl) hide();
+      return;
+    }
+    if(activeEl === el){
+      hide();
+      return;
+    }
+    activeEl = el;
+    const r = el.getBoundingClientRect();
+    show(el, r.left + r.width/2, r.top);
+  }, true);
+
+  // Keyboard accessibility
+  document.addEventListener("focusin", (e)=>{
+    const el = e.target?.closest?.(".deltaArrow");
+    if(!el) return;
+    activeEl = el;
+    const r = el.getBoundingClientRect();
+    show(el, r.left + r.width/2, r.top);
+  }, true);
+
+  document.addEventListener("focusout", (e)=>{
+    const el = e.target?.closest?.(".deltaArrow");
+    if(!el) return;
+    if(activeEl === el) hide();
+  }, true);
+
+  // Hide on scroll / escape
+  document.addEventListener("scroll", ()=>{ if(activeEl) hide(); }, true);
+  document.addEventListener("keydown", (e)=>{ if(e.key === "Escape") hide(); });
+}
+
 
 function openModal(text){
   $("modalBody").textContent = text;
@@ -1298,6 +1492,8 @@ function downloadCurrent(){
 $("downloadBtn").addEventListener("click", downloadCurrent);
 
 async function init(){
+  // enable tooltips for patch delta arrows
+  initDeltaArrowTooltips();
   // Load preset manifest and populate preset selector
   presetManifest = await fetchJSON(PATH_PRESETS + "presets.json");
   // Load shields for labels/order
@@ -1586,9 +1782,12 @@ async function init(){
     if(msg.type === "DONE"){
       currentRows = msg.rows;
       window.lastCustomRows = msg.rows;
+      prepatchRows = Array.isArray(msg.prepatchRows) ? msg.prepatchRows : null;
+      prepatchMap = prepatchRows ? buildPrepatchMap(prepatchRows) : null;
+      window.lastCustomPrepatchRows = prepatchRows;
       ensureCustomPresetOption();
       if (pendingSimCacheKey){
-        simCacheSet(pendingSimCacheKey, msg.rows);
+        simCacheSet(pendingSimCacheKey, { rows: msg.rows, prepatchRows: msg.prepatchRows || null });
         pendingSimCacheKey = null;
       }
       setCustomTitle(lastCustomParams || {});
@@ -1672,8 +1871,15 @@ async function runCustomSim(){
     });
     const cached = simCacheGet(key);
     if (cached){
-      currentRows = cached;
+      // Back-compat: older cache stored only rows array
+      const rows = Array.isArray(cached) ? cached : cached.rows;
+      const pre  = (cached && !Array.isArray(cached)) ? cached.prepatchRows : null;
+
+      currentRows = rows || [];
       window.lastCustomRows = currentRows;
+      prepatchRows = Array.isArray(pre) ? pre : null;
+      prepatchMap = prepatchRows ? buildPrepatchMap(prepatchRows) : null;
+      window.lastCustomPrepatchRows = prepatchRows;
       setCustomTitle(lastCustomParams || {});
       $("presetSelect").value = "__custom__";
       setStatus("Loaded from session cache.");
@@ -1685,10 +1891,11 @@ async function runCustomSim(){
     }
 
     setStatus("Loading weapon data…");
-    const [weaponsDefault, attachmentsDefault, shieldsRawDefault] = await Promise.all([
+    const [weaponsDefault, attachmentsDefault, shieldsRawDefault, patchDefault] = await Promise.all([
       fetchJSON(FILE_WEAPONS),
       fetchJSON(FILE_ATTACH),
       fetchJSON(FILE_SHIELDS),
+      fetchJSON(FILE_PATCH),
     ]);
     const shieldsOverride = getOverride(SHIELDS_OVERRIDE_KEY);
     const attachmentsOverride = getOverride(ATTACH_OVERRIDE_KEY);
@@ -1696,10 +1903,15 @@ async function runCustomSim(){
     const attachments = attachmentsOverride || attachmentsDefault;
     const shieldsRaw = shieldsOverride || shieldsRawDefault;
     const { map: shields } = normalizeShields(shieldsRaw);
+    const patch = patchDefault;
 
     setStatus("Simulating…");
+    // Avoid stale deltas while running custom sim
+    prepatchRows = null;
+    prepatchMap = null;
+    window.lastCustomPrepatchRows = null;
     pendingSimCacheKey = key;
-    worker.postMessage({ type:"RUN_SIM", weapons, attachments, shields, params });
+    worker.postMessage({ type:"RUN_SIM", weapons, attachments, shields, patch, params });
 
   }catch(e){
     setStatus(String(e?.message || e));
@@ -2356,9 +2568,14 @@ function drawBestPerWeaponChart(rowsFiltered){
     if (!stats) return null;
     const { mean, median, sd } = stats;
 
+    const pr = getPrepatchRow(r);
+    const preMean = pr ? Number(extractMetricStats(pr, metricKey)?.mean) : NaN;
+    const delta = makeDeltaInfo(mean, preMean, metricKey);
+
     return {
       label: `${r.weapon} ${tierRoman(r.tier)}${tierPlus ? "+" : ""}`,
       mean,
+      delta,
       sd,
       p50: median,
       labelColor: rarityColor(rarityOf(r.weapon)),
@@ -2435,10 +2652,13 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
   const textColor = getThemeColor("--text", "#e9eef5");
   const subColor  = "rgba(255,255,255,0.65)";
   const gridColor = "rgba(255,255,255,0.08)";
+  const deltaUpColor = getThemeColor("--uncommon", "#33d17a");
+  const deltaDownColor = getThemeColor("--accent", "#ff5a5f");
   const unit = opts.unit ?? "s";
   const valueDec = opts.valueDec ?? 3;
   const gapNameVal = 8;
   const gapValBar = 8;
+  const arrowReserve = Number.isFinite(opts.arrowReserve) ? opts.arrowReserve : 14;
 
   const maxHigh = Math.max(...items.map(it => {
     const mu = Number(it.mean);
@@ -2468,7 +2688,7 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
     const vw = ctx.measureText(valText).width;
     if (vw > maxValueW) maxValueW = vw;
   }
-  const minLeft = 10 + maxLabelW + gapNameVal + maxValueW + gapValBar;
+  const minLeft = 10 + maxLabelW + gapNameVal + arrowReserve + maxValueW + gapValBar;
   const left = Math.max(opts.left ?? 140, minLeft);
   const innerW = Math.max(10, cssW - left - right);
 
@@ -2600,11 +2820,22 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
       ctx.stroke();
     }
 
-    // value label (mean) between name and bar, on the left side
-    ctx.fillStyle = subColor;
+    // value label (mean) between name and bar, on the left side (+ optional delta arrow)
     ctx.textAlign = "right";
     const valText = `${Number(it.mean).toFixed(valueDec)}${unit}`;
     const valueX = left - gapValBar;
+    const valW = ctx.measureText(valText).width;
+
+    if (it.delta && it.delta.dir){
+      const sym = (it.delta.dir === "up") ? "▲" : "▼";
+      const ax = valueX - valW - Math.max(0, arrowReserve - 1); // a bit left of the value text
+      ctx.textAlign = "left";
+      ctx.fillStyle = (it.delta.dir === "up") ? deltaUpColor : deltaDownColor;
+      ctx.fillText(sym, ax, y + barH/2);
+      ctx.textAlign = "right";
+    }
+
+    ctx.fillStyle = subColor;
     ctx.fillText(valText, valueX, y + barH/2);
     ctx.textAlign = "left";
   }
@@ -2626,9 +2857,21 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
       tip.style.display = "block";
       tip.style.left = `${Math.min(rect.width - 10, x + 14)}px`;
       tip.style.top  = `${Math.max(10, y - 10)}px`;
+      const deltaTxt = (it.delta && Number.isFinite(it.delta.pre))
+        ? (() => {
+            const d = opts.valDec ?? 3;
+            const pre = it.delta.pre.toFixed(d);
+            const post = it.delta.post.toFixed(d);
+            const diff = fmtSigned(it.delta.diff, d);
+            const pct = Number.isFinite(it.delta.pct) ? ` (${fmtSigned(it.delta.pct, 1)}%)` : "";
+            return `<div style="margin-top:2px; opacity:.9;">Pre-patch: <b>${pre}${unit}</b> · Δ <b>${diff}${unit}</b>${pct}</div>`;
+          })()
+        : "";
+
       tip.innerHTML =
         `<div style="font-weight:600; margin-bottom:2px;">${it.label}</div>` +
         `<div>Mean: <b>${it.mean.toFixed(opts.valDec ?? 3)}${unit}</b>${p50Txt}${sdTxt}</div>` +
+        deltaTxt +
         (it.detail ? `<div style="opacity:.85;">${it.detail}</div>` : "");
     };
     canvas.onmouseleave = () => { tip.style.display = "none"; };

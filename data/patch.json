@@ -1,0 +1,11 @@
+[
+  {
+    "compatible": ["Rattler"],
+    "mag_add": 2
+  },
+  {
+    "compatible": ["Bettina"],
+    "mag_add": 2,
+    "reload_time": -0.5
+  }
+]

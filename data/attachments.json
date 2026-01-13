@@ -56,7 +56,7 @@
   {
     "name": "Kinetic Converter",
     "type": "stock",
-    "compatible": ["Ferro", "Kettle", "Rattler", "Stitcher", "Arpeggio", "Il Toro", "Osprey", "Renegade", "Torrente", "Bettina", "Bobcat", "Tempest", "Vulcano"],
+    "compatible": ["Ferro", "Kettle", "Rattler", "Stitcher", "Arpeggio", "Il Toro", "Osprey", "Renegade", "Torrente", "Bettina", "Bobcat", "Vulcano", "Aphelion"],
     "fire_rate_mult": 1.15
   }
 ]

@@ -150,25 +150,93 @@ const CEIL_DIGITS = 8;
     return out;
   }
 
-  // Apply one combo of attachments
-  function applyAttachments(stats, combo){
-    const out = { ...stats };
-    const names = [];
+// Apply a list of mod objects (attachments/patch-like) to weapon stats.
+// By default, this does NOT change the "attachments" label unless setAttachmentsLabel=true.
+function applyMods(stats, modsList, opts){
+  const out = { ...stats };
+  const o = opts || {};
+  const setLabel = !!o.setAttachmentsLabel;
 
-    for (const a of combo){
-      if (a._none) continue;
-      names.push(a.name);
+  const names = [];
+  for (const m of (modsList || [])){
+    if (!m || m._none) continue;
+    if (m.name) names.push(m.name);
 
-      if (a.mag_add != null) out.mag_size += a.mag_add;
-      if (a.fire_rate_mult != null) out.fire_rate_bps *= a.fire_rate_mult;
-      // hooks for later:
-      // if (a.reload_time_mult) out.reload_time_s *= a.reload_time_mult;
-      // if (a.damage_mult)      out.damage_per_bullet *= a.damage_mult;
-    }
+    // Alias support (typo-proofing)
+    const magAdd = (m.mag_add != null) ? m.mag_add : (m.mad_add != null ? m.mad_add : null);
 
-    out.attachments = names.length ? names.join(" + ") : "none";
-    return out;
+    if (magAdd != null)              out.mag_size += magAdd;
+
+    if (m.fire_rate_mult != null)    out.fire_rate_bps *= m.fire_rate_mult;
+    if (m.fire_rate_pct != null)     out.fire_rate_bps *= (1 + (m.fire_rate_pct / 100));
+
+    if (m.reload_time_mult != null)  out.reload_time_s *= m.reload_time_mult;
+    if (m.reload_time_pct != null)   out.reload_time_s *= (1 + (m.reload_time_pct / 100));
+    if (m.reload_time != null)       out.reload_time_s += m.reload_time;
+
+    if (m.damage_mult != null)       out.damage_per_bullet *= m.damage_mult;
+    if (m.damage_add != null)        out.damage_per_bullet += m.damage_add;
+
+    if (m.reload_amount_add != null) out.reload_amount += m.reload_amount_add;
+    if (m.reload_amount != null)     out.reload_amount = m.reload_amount;
+
+    if (m.headshot_mult != null)     out.headshot_mult *= m.headshot_mult;
+    if (m.limbs_mult != null)        out.limbs_mult *= m.limbs_mult;
   }
+
+  if (setLabel){
+    out.attachments = names.length ? names.join(" + ") : "none";
+  }
+  return out;
+}
+
+// Reverse/unapply a list of mod objects (attachments/patch-like).
+// NOTE: direct "set" ops (e.g. reload_amount) are not generally invertible; those are ignored here.
+function unapplyMods(stats, modsList, opts){
+  const out = { ...stats };
+  const o = opts || {};
+  const setLabel = !!o.setAttachmentsLabel;
+
+  const names = [];
+  for (const m of (modsList || [])){
+    if (!m || m._none) continue;
+    if (m.name) names.push(m.name);
+
+    const magAdd = (m.mag_add != null) ? m.mag_add : (m.mad_add != null ? m.mad_add : null);
+
+    if (magAdd != null)              out.mag_size -= magAdd;
+
+    if (m.fire_rate_mult != null)    out.fire_rate_bps /= m.fire_rate_mult;
+    if (m.fire_rate_pct != null)     out.fire_rate_bps /= (1 + (m.fire_rate_pct / 100));
+
+    if (m.reload_time_mult != null)  out.reload_time_s /= m.reload_time_mult;
+    if (m.reload_time_pct != null)   out.reload_time_s /= (1 + (m.reload_time_pct / 100));
+    if (m.reload_time != null)       out.reload_time_s -= m.reload_time;
+
+    if (m.damage_mult != null)       out.damage_per_bullet /= m.damage_mult;
+    if (m.damage_add != null)        out.damage_per_bullet -= m.damage_add;
+
+    if (m.reload_amount_add != null) out.reload_amount -= m.reload_amount_add;
+
+    if (m.headshot_mult != null)     out.headshot_mult /= m.headshot_mult;
+    if (m.limbs_mult != null)        out.limbs_mult /= m.limbs_mult;
+  }
+
+  if (setLabel){
+    out.attachments = names.length ? names.join(" + ") : "none";
+  }
+  return out;
+}
+
+// Apply one combo of attachments (also sets "attachments" label)
+function applyAttachments(stats, combo){
+  return applyMods(stats, combo, { setAttachmentsLabel: true });
+}
+
+// Apply one combo of attachments (inverse; also sets "attachments" label)
+function unapplyAttachments(stats, combo){
+  return unapplyMods(stats, combo, { setAttachmentsLabel: true });
+}
 
   // Monte-Carlo shot loop, with bullets-per-shot and per-bullet zone/miss rolls.
   function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, pMiss, rng){
@@ -455,6 +523,9 @@ const CEIL_DIGITS = 8;
     getTypeMapForWeapon,
     combosForTypes,
     applyAttachments,
+    unapplyAttachments,
+    applyMods,
+    unapplyMods,
     shotsToKillTrial,
     shotsToKillWithSeq,
     ttkAndReloadsFromShots,
