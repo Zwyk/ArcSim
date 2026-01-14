@@ -2767,7 +2767,14 @@ function drawBestPerWeaponChart(rowsFiltered){
     closeTiers.sort((a,b)=>a-b);
     const chosenTier = closeTiers[0];
     const chosenRow = bestByTier.get(chosenTier);
-    bestRows.push({ row: chosenRow, tierPlus: closeTiers.length > 1 });
+
+    const maxTierPresent = Math.max(...bestByTier.keys());
+    const hasHigherTier = Number.isFinite(maxTierPresent) && maxTierPresent > chosenTier;
+
+    // Show '+' whenever we're representing multiple tiers:
+    // - multiple tiers are within tolerance of the best, OR
+    // - a lower tier is chosen even though higher tiers exist (e.g. Tier I beats Tier II+).
+    bestRows.push({ row: chosenRow, tierPlus: (closeTiers.length > 1) || hasHigherTier });
   }
   // Order bars by selected ordering metric (ascending)
   const orderKey = uiState.graphOrderBy || "ttk";
