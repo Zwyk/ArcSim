@@ -276,6 +276,7 @@
 We assume optimal range for all weapons (no damage drop-off).
 Aim/ADS/Prefire time are not accounted for.
 For guns that shoot semi-automatically, unless specified, we assume the maximum allowed in-game.
+Shots count are counted as the number of bullets consumed from the magazine: burst-fire weapons will count each bullet individually, while shotguns count as one shot per trigger pull.
 
 Most weapons values are taken from the Anvil Community data which I found to be the most accurate.
 You can also see and edit them for your local tests by pressing the "edit values" button down there before running a custom simulation if you want to mess around or test custom values.
@@ -283,10 +284,13 @@ You can also see and edit them for your local tests by pressing the "edit values
 You can contact me on Discord or Reddit if you have any question: Zwyk
 
 <h3>Patch note</h3>
+2026-01-19
+    - Corrected Aphelion behavior and fire rate: now acts as a burst-fire weapon with 2 bullets per shot; halved fire rate
+
 2026-01-13
     - 1.11.0 patch: Adjusted Kettle max RPS to 7.5 (from 10)
     - New feature: Delta arrows (▲▼) indicating performance changes since the last patch
-    - New feature: Multi-target support. You can edit a custom multi-target scenario (2 or more targets) for custom simulations.
+    - New feature: Multi-target support. You can edit a custom multi-target scenario (2 or more targets) for custom simulations
     - Added Kinetic Converter to Aphelion possible attachments, and removed it from Tempest
 
 2026-01-09

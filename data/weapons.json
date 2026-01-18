@@ -3,7 +3,8 @@
     "name": "Aphelion",
     "damage": 25.0,
     "nb_bullets": 2,
-    "fire_rate": 1.83,
+    "burst_delay": 0.08,
+    "fire_rate": 0.915,
     "mag_size": 10,
     "reload_time_s": 4.5,
     "tier_mods": {
