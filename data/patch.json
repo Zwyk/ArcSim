@@ -1,14 +1,17 @@
 [
   {
+    "patch": "1.7.0",
     "compatible": ["Rattler"],
     "mag_add": 2
   },
   {
+    "patch": "1.7.0",
     "compatible": ["Bettina"],
     "mag_add": 2,
     "reload_time": -0.5
   },
   {
+    "patch": "1.11.0",
     "compatible": ["Kettle (7.5 RPS)"],
     "fire_rate": -2.5
   }

@@ -10,6 +10,64 @@ const FILE_ATTACH = "data/attachments.json";
 const FILE_SHIELDS = "data/shields.json";
 const FILE_PATCH = "data/patch.json";
 
+// Patch metadata (used to label "pre-<patch>" deltas)
+let PATCH_BY_WEAPON = new Map(); // weapon name -> latest patch version string that affected it
+
+function parseSemver(v){
+  return String(v || "")
+    .trim()
+    .split(".")
+    .map(x => parseInt(x, 10))
+    .filter(n => Number.isFinite(n));
+}
+function cmpSemver(a, b){
+  const A = parseSemver(a);
+  const B = parseSemver(b);
+  const n = Math.max(A.length, B.length);
+  for (let i = 0; i < n; i++){
+    const av = A[i] ?? 0;
+    const bv = B[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function buildPatchWeaponMap(patchJson){
+  const m = new Map();
+  if (!Array.isArray(patchJson)) return m;
+  for (const it of patchJson){
+    const ver = String(it?.patch || "").trim();
+    if (!ver) continue;
+    const compat = it?.compatible;
+    if (!Array.isArray(compat)) continue;
+    for (const w of compat){
+      const wn = String(w || "").trim();
+      if (!wn) continue;
+      const prev = m.get(wn);
+      if (!prev || cmpSemver(ver, prev) > 0) m.set(wn, ver);
+    }
+  }
+  return m;
+}
+function patchVersionForWeapon(weapon){
+  const w = String(weapon || "").trim();
+  if (!w || !PATCH_BY_WEAPON) return null;
+  if (PATCH_BY_WEAPON.has(w)) return PATCH_BY_WEAPON.get(w);
+
+  // Loose fallback: case-insensitive + substring match (helps if names slightly differ)
+  const wl = w.toLowerCase();
+  for (const [k, v] of PATCH_BY_WEAPON.entries()){
+    const kl = String(k || "").toLowerCase();
+    if (!kl) continue;
+    if (wl === kl || wl.includes(kl) || kl.includes(wl)) return v;
+  }
+  return null;
+}
+function preLabelForWeapon(weapon){
+  const v = patchVersionForWeapon(weapon);
+  return v ? `pre-${v}` : "pre-patch";
+}
+
+
 // Shields normalization and globals
 let SHIELDS = null;          // map id -> {name,hp,shield,dr,label}
 let SHIELD_ORDER = [];       // ordered ids
@@ -261,11 +319,12 @@ function fmtSigned(x, d=3){
   return (x > 0 ? `+${s}` : x < 0 ? `-${s}` : `0`);
 }
 
-function deltaTooltipText(d, unit){
+function deltaTooltipText(d, unit, preLabel){
   const u = unit || "";
   const abs = `${fmtSigned(d.diff, 3)}${u}`;
   const pctTxt = Number.isFinite(d.pct) ? ` (${fmtSigned(d.pct, 1)}%)` : "";
-  return `pre-patch ${fmtN(d.pre,3)}${u} · Δ ${abs}${pctTxt}`;
+  const lbl = String(preLabel || "pre-patch");
+  return `${lbl}: ${fmtN(d.pre,3)}${u} · Δ ${abs}${pctTxt}`;
 }
 
 
@@ -968,7 +1027,7 @@ function fmtN(x, d=3){
   const p = 10**d;
   return (Math.round(x*p)/p).toFixed(d);
 }
-function renderStatCell(main, unit, sd, ciHalf, delta){
+function renderStatCell(main, unit, sd, ciHalf, delta, preLabel){
   const mainTxt = Number.isFinite(main) ? `${fmtN(main, 3)}${unit}` : "";
   const sdPart = Number.isFinite(sd) ? `σ ±${fmtN(sd, 3)}${unit}` : "";
   const ciPart = Number.isFinite(ciHalf)
@@ -980,8 +1039,11 @@ function renderStatCell(main, unit, sd, ciHalf, delta){
   const sub = combo ? `<div class="sub">${combo}</div>` : "";
 
   const arrow = (delta && delta.dir)
-    ? `<span class="deltaArrow ${delta.dir === "up" ? "deltaUp" : "deltaDown"}" data-tip="${escapeHtml(deltaTooltipText(delta, unit))}" aria-label="${escapeHtml(deltaTooltipText(delta, unit))}" tabindex="0">${delta.dir === "up" ? "▲" : "▼"}</span>`
-    : `<span class="deltaArrow deltaNone" aria-hidden="true">▲</span>`;
+    ? `<span class="deltaArrow ${delta.dir === "up" ? "deltaUp" : "deltaDown"}"
+        data-tip="${escapeHtml(deltaTooltipText(delta, unit, preLabel))}"
+        aria-label="${escapeHtml(deltaTooltipText(delta, unit, preLabel))}"
+        tabindex="0">${delta.dir === "up" ? "▲" : "▼"}</span>`
+    : `<span class="deltaArrow deltaNone" aria-hidden="true" style="visibility:hidden">▲</span>`;
 
   return `<div class="cellMain">${arrow}<span>${mainTxt}</span></div>${sub}`;
 }
@@ -1294,6 +1356,7 @@ function render(){
         label: `Tier ${t}`,
         mean,
         delta,
+        deltaLabel: preLabelForWeapon(best.weapon),
         p50: median,
         sd,
 	        detail: (cv === "base")
@@ -1346,6 +1409,7 @@ function render(){
         label: r.attachments || "none",
         mean,
         delta,
+        deltaLabel: preLabelForWeapon(r.weapon),
         p50: median,
         sd,
         detail: `Tier ${t}`,
@@ -1397,8 +1461,9 @@ function render(){
     // Pre-patch deltas (if available)
     const pr = getPrepatchRow(r);
     const dTtk = pr ? makeDeltaInfo(ttk, tableTTK(pr), "ttk") : null;
+    const preLabel = preLabelForWeapon(r.weapon);
 
-    const ttkExtra = renderStatCell(ttk, "s", ttkSd, ttkCi, dTtk);
+    const ttkExtra = renderStatCell(ttk, "s", ttkSd, ttkCi, dTtk, preLabel);
 
     const variants = r._variants && r._variants.length ? r._variants : null;
     const attCell = variants
@@ -1429,10 +1494,10 @@ function render(){
       <td class="num">${r.tier}</td>
       <td>${attCell}</td>
       <td class="num">${ttkExtra}</td>
-      <td class="num">${renderStatCell(shotsMain, "", Number(r.shots_std), getCiHalfForTable(r, "shots"), dShots)}</td>
-      <td class="num">${renderStatCell(fireMain, "s", Number(r.fire_time_std), getCiHalfForTable(r, "fire_time"), dFire)}</td>
-      <td class="num">${renderStatCell(relMain, "", Number(r.reloads_std), getCiHalfForTable(r, "reloads"), dRel)}</td>
-      <td class="num">${renderStatCell(rldMain, "s", Number(r.reload_time_std), getCiHalfForTable(r, "reload_time"), dRld)}</td>
+      <td class="num">${renderStatCell(shotsMain, "", Number(r.shots_std), getCiHalfForTable(r, "shots"), dShots, preLabel)}</td>
+      <td class="num">${renderStatCell(fireMain, "s", Number(r.fire_time_std), getCiHalfForTable(r, "fire_time"), dFire, preLabel)}</td>
+      <td class="num">${renderStatCell(relMain, "", Number(r.reloads_std), getCiHalfForTable(r, "reloads"), dRel, preLabel)}</td>
+      <td class="num">${renderStatCell(rldMain, "s", Number(r.reload_time_std), getCiHalfForTable(r, "reload_time"), dRld, preLabel)}</td>
       
     `;
     tbody.appendChild(tr);
@@ -1611,6 +1676,14 @@ async function init(){
     SHIELDS = null;
     SHIELD_ORDER = ["NoShield","Light","Medium","Heavy"];
   }
+
+  // Load patch metadata (optional) so tooltips can show "pre-<patch>"
+  try{
+    const patchMeta = await fetchJSONMaybe(FILE_PATCH);
+    if (patchMeta) PATCH_BY_WEAPON = buildPatchWeaponMap(patchMeta);
+  }catch{ /* optional */ }
+
+
   const presetSelect = $("presetSelect");
   presetSelect.innerHTML = "";
   const presetById = new Map(presetManifest.map(p => [p.id, p]));
@@ -2797,6 +2870,7 @@ function drawBestPerWeaponChart(rowsFiltered){
       label: `${r.weapon} ${tierRoman(r.tier)}${tierPlus ? "+" : ""}`,
       mean,
       delta,
+      deltaLabel: preLabelForWeapon(r.weapon),
       sd,
       p50: median,
       labelColor: rarityColor(rarityOf(r.weapon)),
@@ -3085,7 +3159,8 @@ function drawHBarChart(canvasId, tooltipId, metaId, items, opts = {}){
             const post = it.delta.post.toFixed(d);
             const diff = fmtSigned(it.delta.diff, d);
             const pct = Number.isFinite(it.delta.pct) ? ` (${fmtSigned(it.delta.pct, 1)}%)` : "";
-            return `<div style="margin-top:2px; opacity:.9;">Pre-patch: <b>${pre}${unit}</b> · Δ <b>${diff}${unit}</b>${pct}</div>`;
+            const lbl = escapeHtml(it.deltaLabel || "pre-patch");
+             return `<div style="margin-top:2px; opacity:.9;">${lbl}: <b>${pre}${unit}</b> · Δ <b>${diff}${unit}</b>${pct}</div>`;
           })()
         : "";
 

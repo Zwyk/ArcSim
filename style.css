@@ -296,6 +296,37 @@ tbody td{
 
 .num{ text-align:right; font-variant-numeric: tabular-nums; }
 
+/* Pre-patch delta arrows (table) – match graph colors */
+.cellMain{
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.num .cellMain{
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.deltaArrow{
+  display:inline-block;
+  width: 1.1em;           /* keep numbers aligned */
+  text-align:center;
+  font-size: 11px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+/* Note: delta.dir==='up' means improved (lower is better) */
+.deltaUp{ color: var(--uncommon); }
+.deltaDown{ color: var(--accent); }
+
+.deltaArrow:focus-visible{
+  outline: 2px solid rgba(255,255,255,0.35);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .badge-epic{ color:var(--epic); font-weight:800; }
 .badge-rare{ color:var(--rare); font-weight:800; }
 .badge-uncommon{ color:var(--uncommon); font-weight:800; }
