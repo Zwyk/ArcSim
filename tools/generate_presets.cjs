@@ -51,41 +51,23 @@ const TARGETS = normalizeShields(shieldsRaw);
 // Multi-target default scenario to include in presets (appended after single-target shields)
 const DEFAULT_MULTI_TARGET = ["Medium","Light","Light"]; // change here if you want e.g. ["Light","Light","Light"]
 
-
-function buildTargetScenarios(TARGETS_MAP){
-  const out = [];
-
-  // Single-target scenarios remain keyed by id
-  for (const id of Object.keys(TARGETS_MAP)){
-    const t = TARGETS_MAP[id];
-    const totals = SimCore.targetTotals(t);
-    out.push({ name: id, target: t, ...totals });
-  }
-
-  // Append the multi-target example (ids or labels; space-insensitive)
-  const parts = DEFAULT_MULTI_TARGET.slice();
-  if (parts.length > 1){
-    try{
-      const lookup = SimCore.buildTargetLookup(TARGETS_MAP);
-      const label = parts.join("+");
-      const tgt = SimCore.resolveTargetSpec(TARGETS_MAP, label, lookup);
-      const totals = SimCore.targetTotals(tgt);
-      out.push({ name: label, target: tgt, ...totals });
-    }catch(e){
-      console.warn("[warn] DEFAULT_MULTI_TARGET skipped:", { parts, error: String(e?.message || e) });
+const TARGET_SCENARIOS = (() => {
+  const scenarios = SimCore.buildTargetScenarios(TARGETS, DEFAULT_MULTI_TARGET);
+  if (DEFAULT_MULTI_TARGET.length > 1){
+    const label = DEFAULT_MULTI_TARGET.join("+");
+    if (!scenarios.some(s => s?.name === label)){
+      console.warn("[warn] DEFAULT_MULTI_TARGET skipped:", { parts: DEFAULT_MULTI_TARGET.slice() });
     }
   }
-
-  return out;
-}
-
-const TARGET_SCENARIOS = buildTargetScenarios(TARGETS);
+  return scenarios;
+})();
 
 
 
 
 const {
   clamp01,
+  normalizeZoneWeights,
   mulberry32,
   buildWeaponBase,
   applyTierMods,
@@ -120,17 +102,6 @@ const OPT = parseArgs(process.argv);
 console.log("Preset generation options:", OPT);
 const PRECOMP_TRIALS = (Number.isFinite(OPT.trials) && OPT.trials > 0) ? OPT.trials : 500000;
 const PRECOMP_CI = OPT.confidence ?? 0.95;
-
-function combosCountForTypes(typeMap){
-  if (!typeMap || !typeMap.keys) return 1;
-  let n = 1;
-  for (const t of typeMap.keys()){
-    const list = typeMap.get(t);
-    const k = Array.isArray(list) ? (1 + list.length) : 1;
-    n *= k;
-  }
-  return n;
-}
 
 function makeProgress(label, total){
   const tty = !!process.stdout.isTTY;
@@ -204,62 +175,10 @@ function makeProgress(label, total){
 }
 
 // Stable 32-bit hash for deterministic RNG seeding per row key
-function hash32(str){
-  // FNV-1a 32-bit
-  let h = 0x811c9dc5;
-  const s = String(str || "");
-  for (let i = 0; i < s.length; i++){
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
 // zForCL, mean, stddev, quantileCI, mulberry32, percentile imported from SimCore
-function maxTier(w) {
-  const tm = w.tier_mods || {};
-  let m = 0;
-  for (const v of Object.values(tm)) if (Array.isArray(v)) m = Math.max(m, v.length);
-  return Math.max(1, 1 + m);
-}
-
-// Removed local applyTier/groupAttachmentsByWeapon/combosForTypes/applyAttachments;
-// using worker versions imported from sandbox.
-
-// Deterministic hit sequences (simple fixed sequences)
-function makeZoneSequence(bodyW, headW, limbsW, length = 100) {
-  const parts = [
-    ["body", bodyW],
-    ["head", headW],
-    ["limbs", limbsW],
-  ].filter(([, w]) => w > 0);
-  if (!parts.length) return ["body"];
-  const sum = parts.reduce((s, [, w]) => s + w, 0);
-  const norm = parts.map(([z, w]) => [z, w / sum]);
-  const counts = Object.fromEntries(norm.map(([z, w]) => [z, Math.round(w * length)]));
-  const total = Object.values(counts).reduce((s, x) => s + x, 0);
-  const mainZone = norm.slice().sort((a, b) => b[1] - a[1])[0][0];
-  counts[mainZone] += (length - total);
-  let bag = [];
-  for (const [z] of norm.slice().sort((a, b) => b[1] - a[1])) {
-    bag = bag.concat(Array(Math.max(0, counts[z])).fill(z));
-  }
-  if (!bag.length) return ["body"];
-  const out = new Array(bag.length).fill(null);
-  const step = 7;
-  let i = 0;
-  for (const item of bag) {
-    while (out[i] !== null) i = (i + 1) % out.length;
-    out[i] = item;
-    i = (i + step) % out.length;
-  }
-  return out;
-}
 
 function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0, opt = {}) {
-  const sum = w.body + w.head + w.limbs;
-  const pBody = w.body / sum;
-  const pHead = w.head / sum;
-  const pLimbs = w.limbs / sum;
+  const { nBody: pBody, nHead: pHead, nLimbs: pLimbs } = normalizeZoneWeights(w.body, w.head, w.limbs);
   const attByWeapon = groupAttachmentsByWeapon(attachments);
   const filterWeaponsSet = opt?.filterWeaponsSet || null;
   const isPrepatch = !!opt?.prepatch;
@@ -270,8 +189,8 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
   for (const wpn of weapons){
     if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
     const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
-    const tiers = maxTier(wpn);
-    expectedTotal += tiers * combosCountForTypes(tmap) * scenarioCount;
+    const tiers = SimCore.maxTier(wpn);
+    expectedTotal += tiers * SimCore.combosCountForTypes(tmap) * scenarioCount;
   }
   const progress = makeProgress(`[status] ${profileName}${isPrepatch ? " (prepatch)" : ""}:`, expectedTotal);
 
@@ -286,7 +205,7 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
     const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
     const combos = combosForTypes(tmap);
 
-    const tiers = maxTier(wpn);
+    const tiers = SimCore.maxTier(wpn);
     for (let tier = 1; tier <= tiers; tier++) {
       const patchTypeMap = getTypeMapForWeapon(patchMapLocal, wpn.name);
       const patchItems = patchTypeMap ? patchTypeMap.get("patch") : null;
@@ -307,7 +226,7 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
           // Deterministic RNG seed per (preset profile, weapon, tier, attachments, target)
           // so post-patch vs pre-patch comparisons don't drift when we filter weapons.
           const rowKey = `${profileName}|${stats.weapon}|${tier}|${stats.attachments}|${tName}`;
-          const rng = mulberry32((seedBase ^ hash32(rowKey)) >>> 0);
+          const rng = mulberry32((seedBase ^ SimCore.hash32(rowKey)) >>> 0);
 
           const post = simulateRowStats(stats, tgt, pBody, pHead, pLimbs, miss, trials, rng, ciLevel);
 
@@ -357,7 +276,7 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
 
 function runPresetDeterministic(profileName, w, opt = {}){
   // Use interleaved deterministic sequence
-  const seq = makeZoneSequence(w.body, w.head, w.limbs, 100);
+  const seq = SimCore.makeZoneSequence(w.body, w.head, w.limbs, 100);
   const attByWeapon = groupAttachmentsByWeapon(attachments);
   const filterWeaponsSet = opt?.filterWeaponsSet || null;
   const isPrepatch = !!opt?.prepatch;
@@ -368,8 +287,8 @@ function runPresetDeterministic(profileName, w, opt = {}){
   for (const wpn of weapons){
     if (filterWeaponsSet && !filterWeaponsSet.has(wpn.name)) continue;
     const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
-    const tiers = maxTier(wpn);
-    expectedTotal += tiers * combosCountForTypes(tmap) * scenarioCount;
+    const tiers = SimCore.maxTier(wpn);
+    expectedTotal += tiers * SimCore.combosCountForTypes(tmap) * scenarioCount;
   }
   const progress = makeProgress(`[status] ${profileName}${isPrepatch ? " (prepatch)" : ""}:`, expectedTotal);
 
@@ -384,7 +303,7 @@ function runPresetDeterministic(profileName, w, opt = {}){
     const tmap = getTypeMapForWeapon(attByWeapon, wpn.name) || new Map();
     const combos = combosForTypes(tmap);
 
-    const tiers = maxTier(wpn);
+    const tiers = SimCore.maxTier(wpn);
     for (let tier = 1; tier <= tiers; tier++) {
       const patchTypeMap = getTypeMapForWeapon(patchMapLocal, wpn.name);
       const patchItems = patchTypeMap ? patchTypeMap.get("patch") : null;

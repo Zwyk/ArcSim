@@ -19,6 +19,167 @@ const CEIL_DIGITS = 8;
     return x;
   }
 
+  // Normalize hit-zone weights into probabilities.
+  // Returns { nBody, nHead, nLimbs, total } where total is the pre-normalized sum.
+  function normalizeZoneWeights(body, head, limbs){
+    const b = Number(body ?? 0);
+    const h = Number(head ?? 0);
+    const l = Number(limbs ?? 0);
+    const total = b + h + l;
+    return {
+      total,
+      nBody: total > 0 ? (b / total) : 0,
+      nHead: total > 0 ? (h / total) : 0,
+      nLimbs: total > 0 ? (l / total) : 0,
+    };
+  }
+
+  function isFullyDeterministicAccuracy(pMiss, nBody, nHead, nLimbs, eps){
+    const e = (eps == null) ? 1e-9 : eps;
+    return (pMiss <= e) && (
+      (Math.abs(nBody - 1) <= e && Math.abs(nHead) <= e && Math.abs(nLimbs) <= e) ||
+      (Math.abs(nHead - 1) <= e && Math.abs(nBody) <= e && Math.abs(nLimbs) <= e) ||
+      (Math.abs(nLimbs - 1) <= e && Math.abs(nBody) <= e && Math.abs(nHead) <= e)
+    );
+  }
+
+  // Trials: allow request for many trials, but short-circuit fully-deterministic scenarios.
+  // Deterministic = 100% one zone (body/head/limbs) and 0% miss.
+  function computeEffectiveTrials(trials, pMiss, nBody, nHead, nLimbs, eps){
+    const reqTrials = Math.max(1, (Number(trials ?? 1) | 0));
+    const isDeterministic = isFullyDeterministicAccuracy(pMiss, nBody, nHead, nLimbs, eps);
+    const effTrials = isDeterministic ? 1 : reqTrials;
+    return { reqTrials, effTrials, isDeterministic };
+  }
+
+  // Stable 32-bit hash (FNV-1a) for deterministic seeding.
+  function hash32(str){
+    let h = 0x811c9dc5;
+    const s = String(str || "");
+    for (let i = 0; i < s.length; i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+
+  // Deterministic hit sequences (simple fixed sequences)
+  function makeZoneSequence(bodyW, headW, limbsW, length){
+    const len = (length == null) ? 100 : length;
+    const parts = [
+      ["body", bodyW],
+      ["head", headW],
+      ["limbs", limbsW],
+    ].filter(([, w]) => w > 0);
+    if (!parts.length) return ["body"];
+    const sum = parts.reduce((s, [, w]) => s + w, 0);
+    const norm = parts.map(([z, w]) => [z, w / sum]);
+    const counts = Object.fromEntries(norm.map(([z, w]) => [z, Math.round(w * len)]));
+    const total = Object.values(counts).reduce((s, x) => s + x, 0);
+    const mainZone = norm.slice().sort((a, b) => b[1] - a[1])[0][0];
+    counts[mainZone] += (len - total);
+    let bag = [];
+    for (const [z] of norm.slice().sort((a, b) => b[1] - a[1])){
+      bag = bag.concat(Array(Math.max(0, counts[z])).fill(z));
+    }
+    if (!bag.length) return ["body"];
+    const out = new Array(bag.length).fill(null);
+    const step = 7;
+    let i = 0;
+    for (const item of bag){
+      while (out[i] !== null) i = (i + 1) % out.length;
+      out[i] = item;
+      i = (i + step) % out.length;
+    }
+    return out;
+  }
+
+  function combosCountForTypes(typeMap){
+    if (!typeMap || !typeMap.keys) return 1;
+    let n = 1;
+    for (const t of typeMap.keys()){
+      const list = typeMap.get(t);
+      const k = Array.isArray(list) ? (1 + list.length) : 1;
+      n *= k;
+    }
+    return n;
+  }
+
+  function maxTier(weapon){
+    const tm = weapon?.tier_mods || {};
+    let m = 0;
+    for (const v of Object.values(tm)) if (Array.isArray(v)) m = Math.max(m, v.length);
+    return Math.max(1, 1 + m);
+  }
+
+  // Build a consistent target list from UI-like params.
+  // - Includes composite multi-target specs via +.
+  // - Ensures the multi-target label is included for full sweeps or ALL.
+  function buildTargetListFromParams(targetsMap, params, doFullSweep, defaultMultiParts){
+    const p = params || {};
+    const targetLookup = buildTargetLookup(targetsMap);
+
+    // Composite multi-target scenario support (also included in sweeps)
+    let multiParts = Array.isArray(defaultMultiParts) && defaultMultiParts.length
+      ? defaultMultiParts.slice()
+      : ["Medium", "Light", "Light"];
+
+    if (Array.isArray(p.multiTarget)){
+      const parts = p.multiTarget.map(x => String(x || "").trim()).filter(Boolean);
+      if (parts.length > 1){
+        try{
+          // validates ids/labels (space-insensitive) via the shared resolver
+          resolveTargetSpec(targetsMap, parts.join("+"), targetLookup);
+          multiParts = parts;
+        }catch(_e){ /* keep default */ }
+      }
+    }
+    const DEFAULT_MULTI_TARGET_NAME = multiParts.join("+");
+
+    let targetList;
+    if (doFullSweep){
+      targetList = Object.keys(targetsMap);
+      if (!targetList.includes(DEFAULT_MULTI_TARGET_NAME)) targetList.push(DEFAULT_MULTI_TARGET_NAME);
+    } else if (Array.isArray(p.targets)){
+      targetList = p.targets;
+    } else if (p.target === "ALL" || p.target == null){
+      targetList = Object.keys(targetsMap);
+      if (!targetList.includes(DEFAULT_MULTI_TARGET_NAME)) targetList.push(DEFAULT_MULTI_TARGET_NAME);
+    } else {
+      targetList = [p.target];
+    }
+
+    for (const tName of targetList){
+      // validate (also validates composite specs)
+      resolveTargetSpec(targetsMap, tName, targetLookup);
+    }
+
+    return { targetList, targetLookup, multiParts, DEFAULT_MULTI_TARGET_NAME };
+  }
+
+  // Build target scenarios (single targets + optional composite) with cached totals.
+  function buildTargetScenarios(targetsMap, multiParts){
+    const out = [];
+    for (const id of Object.keys(targetsMap || {})){
+      const t = targetsMap[id];
+      const totals = targetTotals(t);
+      out.push({ name: id, target: t, ...totals });
+    }
+
+    const parts = Array.isArray(multiParts) ? multiParts.slice() : [];
+    if (parts.length > 1){
+      try{
+        const lookup = buildTargetLookup(targetsMap);
+        const label = parts.join("+");
+        const tgt = resolveTargetSpec(targetsMap, label, lookup);
+        const totals = targetTotals(tgt);
+        out.push({ name: label, target: tgt, ...totals });
+      }catch(_e){ /* skip */ }
+    }
+
+    return out;
+  }
+
   // simple deterministic PRNG
   function mulberry32(a) {
     return function () {
@@ -849,6 +1010,15 @@ function simulateRowStats(stats, tgt, pBody, pHead, pLimbs, pMiss, trials, rng, 
   // Public API
   return {
     clamp01,
+    normalizeZoneWeights,
+    isFullyDeterministicAccuracy,
+    computeEffectiveTrials,
+    hash32,
+    makeZoneSequence,
+    combosCountForTypes,
+    maxTier,
+    buildTargetListFromParams,
+    buildTargetScenarios,
     mulberry32,
     buildWeaponBase,
     applyTierMods,

@@ -4,9 +4,11 @@ importScripts("sim_core.js");
 
 const {
   clamp01,
+  normalizeZoneWeights,
+  computeEffectiveTrials,
+  buildTargetListFromParams,
   mulberry32,
   buildConfigs,
-  buildTargetLookup,
   resolveTargetSpec,
   simulateRowStats,
 } = self.SimCore;
@@ -34,25 +36,9 @@ self.onmessage = (ev) => {
     const doFullSweep = (fullSweep !== false);
 
     // Normalize accuracy inputs and miss rate
-    const b = Number(body ?? 0);
-    const h = Number(head ?? 0);
-    const l = Number(limbs ?? 0);
-    const totalAcc = b + h + l;
-    const nBody = totalAcc > 0 ? (b / totalAcc) : 0;
-    const nHead = totalAcc > 0 ? (h / totalAcc) : 0;
-    const nLimbs = totalAcc > 0 ? (l / totalAcc) : 0;
+    const { nBody, nHead, nLimbs } = normalizeZoneWeights(body, head, limbs);
     const pMiss = clamp01(Number(miss ?? 0));
-
-    // Trials: allow UI to request many trials, but short-circuit fully-deterministic scenarios.
-    // Deterministic = 100% one zone (body/head/limbs) and 0% miss.
-    const reqTrials = Math.max(1, (Number(trials ?? 1) | 0));
-    const eps = 1e-9;
-    const isDeterministic = (pMiss <= eps) && (
-      (Math.abs(nBody - 1) <= eps && Math.abs(nHead) <= eps && Math.abs(nLimbs) <= eps) ||
-      (Math.abs(nHead - 1) <= eps && Math.abs(nBody) <= eps && Math.abs(nLimbs) <= eps) ||
-      (Math.abs(nLimbs - 1) <= eps && Math.abs(nBody) <= eps && Math.abs(nHead) <= eps)
-    );
-    const effTrials = isDeterministic ? 1 : reqTrials;
+    const { effTrials } = computeEffectiveTrials(trials, pMiss, nBody, nHead, nLimbs);
 
     const tierList = doFullSweep
       ? [1,2,3,4]
@@ -61,39 +47,12 @@ self.onmessage = (ev) => {
     const { configs } = buildConfigs(weapons || [], attachments || [], patch || [], tierList);
 
     const targetsMap = shields || {};
-    const targetLookup = buildTargetLookup(targetsMap);
-
-    // Composite multi-target scenario support (also included in sweeps)
-    let multiParts = ["Medium", "Light", "Light"];
-    if (params && Array.isArray(params.multiTarget)){
-      const parts = params.multiTarget.map(x => String(x || "").trim()).filter(Boolean);
-      if (parts.length > 1){
-        try{
-          // validates ids/labels (space-insensitive) via the shared resolver
-          resolveTargetSpec(targetsMap, parts.join("+"), targetLookup);
-          multiParts = parts;
-        }catch(_e){ /* keep default */ }
-      }
-    }
-    const DEFAULT_MULTI_TARGET_NAME = multiParts.join("+");
-
-    let targetList;
-    if (doFullSweep){
-      targetList = Object.keys(targetsMap);
-      if (!targetList.includes(DEFAULT_MULTI_TARGET_NAME)) targetList.push(DEFAULT_MULTI_TARGET_NAME);
-    } else if (Array.isArray(targets)){
-      targetList = targets;
-    } else if (target === "ALL" || target == null){
-      targetList = Object.keys(targetsMap);
-      if (!targetList.includes(DEFAULT_MULTI_TARGET_NAME)) targetList.push(DEFAULT_MULTI_TARGET_NAME);
-    } else {
-      targetList = [target];
-    }
-
-    for (const tName of targetList){
-      // validate (also validates composite specs)
-      resolveTargetSpec(targetsMap, tName, targetLookup);
-    }
+    const { targetList, targetLookup } = buildTargetListFromParams(
+      targetsMap,
+      { target, targets, multiTarget: params?.multiTarget },
+      doFullSweep,
+      ["Medium", "Light", "Light"]
+    );
 
     const baseSeed = (Number(seed ?? 1337) >>> 0);
     const cl = confidence ?? 0.95;
