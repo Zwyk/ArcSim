@@ -43,6 +43,17 @@ self.onmessage = (ev) => {
     const nLimbs = totalAcc > 0 ? (l / totalAcc) : 0;
     const pMiss = clamp01(Number(miss ?? 0));
 
+    // Trials: allow UI to request many trials, but short-circuit fully-deterministic scenarios.
+    // Deterministic = 100% one zone (body/head/limbs) and 0% miss.
+    const reqTrials = Math.max(1, (Number(trials ?? 1) | 0));
+    const eps = 1e-9;
+    const isDeterministic = (pMiss <= eps) && (
+      (Math.abs(nBody - 1) <= eps && Math.abs(nHead) <= eps && Math.abs(nLimbs) <= eps) ||
+      (Math.abs(nHead - 1) <= eps && Math.abs(nBody) <= eps && Math.abs(nLimbs) <= eps) ||
+      (Math.abs(nLimbs - 1) <= eps && Math.abs(nBody) <= eps && Math.abs(nHead) <= eps)
+    );
+    const effTrials = isDeterministic ? 1 : reqTrials;
+
     const tierList = doFullSweep
       ? [1,2,3,4]
       : (Array.isArray(tiers) && tiers.length ? tiers.map(Number) : [1,2,3,4]);
@@ -85,7 +96,6 @@ self.onmessage = (ev) => {
     }
 
     const baseSeed = (Number(seed ?? 1337) >>> 0);
-    const nTrials = Math.max(1, Number(trials ?? 1) | 0);
     const cl = confidence ?? 0.95;
 
     const total = configs.length * targetList.length;
@@ -101,13 +111,13 @@ self.onmessage = (ev) => {
 
         // deterministic RNG stream per (config, target)
         const rng = mulberry32((baseSeed + i*1013904223 + ti*374761393) >>> 0);
-        const post = simulateRowStats(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, nTrials, rng, cl);
+        const post = simulateRowStats(cfg.stats, tgt, nBody, nHead, nLimbs, pMiss, effTrials, rng, cl);
 
         // prepatch run (independent deterministic RNG stream) when available
         let pre = null;
         if (cfg.stats_pre){
           const rngPre = mulberry32((baseSeed + 0x9e3779b9 + i*1013904223 + ti*374761393) >>> 0);
-          pre = simulateRowStats(cfg.stats_pre, tgt, nBody, nHead, nLimbs, pMiss, nTrials, rngPre, cl);
+          pre = simulateRowStats(cfg.stats_pre, tgt, nBody, nHead, nLimbs, pMiss, effTrials, rngPre, cl);
         }
 
         rows.push({
@@ -123,7 +133,7 @@ self.onmessage = (ev) => {
 
           target: targetName,
           ci_level: cl,
-          n_trials: nTrials,
+          n_trials: effTrials,
 
           ...post,
 
@@ -150,7 +160,7 @@ self.onmessage = (ev) => {
 
             target: targetName,
             ci_level: cl,
-            n_trials: nTrials,
+            n_trials: effTrials,
 
             ...pre,
 
