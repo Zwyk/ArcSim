@@ -576,6 +576,276 @@ function unapplyAttachments(stats, combo){
     };
   }
 
+
+// ---------- Higher-level shared helpers (used by both Node preset generator and WebWorker) ----------
+
+function zForCI(ciLevel){
+  const cl = Number(ciLevel);
+  if (cl >= 0.99) return 2.575829;
+  if (cl >= 0.95) return 1.959964;
+  if (cl >= 0.90) return 1.644854;
+  if (cl >= 0.80) return 1.281552;
+  return 1.959964;
+}
+
+function ciHalfFallback(sd, nTrials, ciLevel){
+  const sdN = Number(sd), n = Number(nTrials);
+  if (!Number.isFinite(sdN) || !Number.isFinite(n) || n <= 1) return NaN;
+  return zForCI(ciLevel) * sdN / Math.sqrt(n);
+}
+
+// Normal-approx order-stat CI for a quantile q (e.g. 0.5 median, 0.95 p95).
+// Returns [low, high] values (from the sorted sample) that roughly bound the quantile with confidence cl.
+function quantileCIForQ(sortedArr, q, cl){
+  const n = sortedArr.length;
+  if (n === 0) return [NaN, NaN];
+  if (n === 1) return [sortedArr[0], sortedArr[0]];
+
+  const z = zForCL(cl);
+  const mu = n * q;
+  const sigma = Math.sqrt(n * q * (1 - q));
+
+  let kLow = Math.floor(mu - z * sigma);
+  let kHigh = Math.ceil(mu + z * sigma);
+
+  kLow = Math.max(0, Math.min(n - 1, kLow));
+  kHigh = Math.max(0, Math.min(n - 1, kHigh));
+  if (kHigh < kLow){ const t = kLow; kLow = kHigh; kHigh = t; }
+
+  return [sortedArr[kLow], sortedArr[kHigh]];
+}
+
+// Build a compatibility map for patch.json like attachments map, so getTypeMapForWeapon() can be reused.
+// Map<compatibleWeaponName, Map<"patch", patchItems[]>>
+function groupPatchByWeapon(patchArr){
+  const m = new Map();
+  for (const it of (patchArr || [])){
+    const compat = it && (it.compatible ?? it.weapons ?? it.weapon ?? it.weapon_name);
+    const list = Array.isArray(compat) ? compat : (typeof compat === "string" ? [compat] : null);
+    if (!list || !list.length) continue;
+
+    for (const wName of list){
+      const key = String(wName || "").trim();
+      if (!key) continue;
+      if (!m.has(key)) m.set(key, new Map([["patch", []]]));
+      m.get(key).get("patch").push(it);
+    }
+  }
+  return m;
+}
+
+function hasPatchForWeapon(patchMap, weaponName){
+  const tm = getTypeMapForWeapon(patchMap, weaponName);
+  const arr = tm ? tm.get("patch") : null;
+  return Array.isArray(arr) && arr.length > 0;
+}
+
+// Build (weapon,tier,attachments) configs, optionally including a pre-patch baseline for weapons affected by patch.json.
+// Returns { configs, attachMap, patchMap } where configs is an array of { weapon, tier, attachments, stats, stats_pre }.
+function buildConfigs(weapons, attachments, patch, tierList){
+  const attachMap = groupAttachmentsByWeapon(attachments || []);
+  const patchMap = groupPatchByWeapon(patch || []);
+  const tiers = Array.isArray(tierList) && tierList.length ? tierList.map(Number) : [1,2,3,4];
+
+  const configs = [];
+  for (const w of (weapons || [])){
+    for (const t of tiers){
+      const basePost = applyTierMods(buildWeaponBase(w), t);
+
+      // If weapon affected by patch.json, compute a pre-patch baseline by reversing patch mods (then apply tier + attachments)
+      let basePre = null;
+      const patchTypeMap = getTypeMapForWeapon(patchMap, w.name);
+      const patchItems = patchTypeMap ? patchTypeMap.get("patch") : null;
+      if (Array.isArray(patchItems) && patchItems.length){
+        basePre = buildWeaponBase(w);
+        basePre = unapplyMods(basePre, patchItems);
+        basePre = applyTierMods(basePre, t);
+      }
+
+      const typeMap = getTypeMapForWeapon(attachMap, w.name);
+      if (typeMap){
+        const combos = combosForTypes(typeMap);
+        for (const combo of combos){
+          const stats = applyAttachments(basePost, combo);
+          const stats_pre = basePre ? applyAttachments(basePre, combo) : null;
+          configs.push({ weapon: w.name, tier: t, attachments: stats.attachments, stats, stats_pre });
+        }
+      } else {
+        configs.push({ weapon: w.name, tier: t, attachments: "none", stats: basePost, stats_pre: basePre });
+      }
+    }
+  }
+  return { configs, attachMap, patchMap };
+}
+
+// Build a lookup that can resolve target ids OR labels/names (space-insensitive).
+function buildTargetLookup(targetsMap){
+  const norm = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "");
+  const lookup = new Map();
+  for (const id of Object.keys(targetsMap || {})){
+    const t = targetsMap[id];
+    lookup.set(norm(id), id);
+    if (t?.label) lookup.set(norm(t.label), id);
+    if (t?.name) lookup.set(norm(t.name), id);
+  }
+  return { lookup, norm };
+}
+
+// Resolves either a single target id/label, or a composite like "Medium+Light+Light" into:
+// - a single target object, or
+// - an array of target objects (multi-target / sequential)
+function resolveTargetSpec(targetsMap, targetName, targetLookup){
+  const s = String(targetName || "");
+  const { lookup, norm } = targetLookup || buildTargetLookup(targetsMap);
+  const resolveOne = (token) => {
+    const key = lookup.get(norm(token)) || token;
+    const t = (targetsMap || {})[key];
+    if (!t) throw new Error(`Unknown target: ${token}`);
+    return t;
+  };
+
+  if (s.includes("+")){
+    const parts = s.split("+").map(x=>x.trim()).filter(Boolean);
+    return parts.map(resolveOne);
+  }
+  return resolveOne(s.trim());
+}
+
+function targetTotals(tgt){
+  if (Array.isArray(tgt)){
+    const hp = tgt.reduce((s,t)=>s + (+t.hp || 0), 0);
+    const shield = tgt.reduce((s,t)=>s + (+t.shield || 0), 0);
+    const dr = tgt[0]?.dr ?? 0;
+    return { hp, shield, dr };
+  }
+  return { hp: +tgt.hp || 0, shield: +tgt.shield || 0, dr: +tgt.dr || 0 };
+}
+
+// Shared Monte-Carlo per-row stats (same output shape for Node-generated presets and browser custom sims)
+function simulateRowStats(stats, tgt, pBody, pHead, pLimbs, pMiss, trials, rng, cl){
+  const n = Math.max(1, trials|0);
+
+  const ttks = new Array(n);
+  const shotsArr = new Array(n);
+  const reloadsArr = new Array(n);
+  const reloadTimeArr = new Array(n);
+  const fireTimeArr = new Array(n);
+
+  let shotsSum = 0;
+  let reloadsSum = 0;
+
+  for (let k = 0; k < n; k++){
+    const shotsInfo = shotsToKillTrial(stats, tgt, pBody, pHead, pLimbs, pMiss, rng);
+    const shots =
+      (typeof shotsInfo === "number")
+        ? shotsInfo
+        : (Number.isFinite(shotsInfo?.bullets_to_kill)
+            ? shotsInfo.bullets_to_kill
+            : (shotsInfo?.shots ?? NaN));
+
+    const tr = ttkAndReloadsFromShots(shotsInfo, stats);
+    const ttkVal = tr.ttk;
+    const rels = tr.reloads;
+    const rTime = rels * stats.reload_time_s;
+    const fTime = ttkVal - rTime;
+
+    ttks[k] = ttkVal;
+    shotsArr[k] = shots;
+    reloadsArr[k] = rels;
+    reloadTimeArr[k] = rTime;
+    fireTimeArr[k] = fTime;
+
+    shotsSum += shots;
+    reloadsSum += rels;
+  }
+
+  ttks.sort((a,b)=>a-b);
+  shotsArr.sort((a,b)=>a-b);
+  reloadsArr.sort((a,b)=>a-b);
+  reloadTimeArr.sort((a,b)=>a-b);
+  fireTimeArr.sort((a,b)=>a-b);
+
+  const z = zForCL(cl);
+
+  const ttk_mean = mean(ttks);
+  const ttk_sd = stddev(ttks, ttk_mean);
+  const ttk_se = ttk_sd / Math.sqrt(ttks.length);
+  const ttk_mean_ci_low = ttk_mean - z * ttk_se;
+  const ttk_mean_ci_high = ttk_mean + z * ttk_se;
+
+  const ttk_p50 = percentile(ttks, 0.50);
+  const ttk_p95 = percentile(ttks, 0.95);
+  const [ttk_p50_ci_low, ttk_p50_ci_high] = quantileCIForQ(ttks, 0.50, cl);
+  const [ttk_p95_ci_low, ttk_p95_ci_high] = quantileCIForQ(ttks, 0.95, cl);
+
+  const sShots_mean = shotsSum / n;
+  const sShots_std = stddev(shotsArr, sShots_mean);
+  const sShots_half = ciHalfFallback(sShots_std, n, cl);
+
+  const sRel_mean = reloadsSum / n;
+  const sRel_std = stddev(reloadsArr, sRel_mean);
+  const sRel_half = ciHalfFallback(sRel_std, n, cl);
+
+  const sRTime_mean = mean(reloadTimeArr);
+  const sRTime_std = stddev(reloadTimeArr, sRTime_mean);
+  const sRTime_half = ciHalfFallback(sRTime_std, n, cl);
+
+  const sFire_mean = mean(fireTimeArr);
+  const sFire_std = stddev(fireTimeArr, sFire_mean);
+  const sFire_half = ciHalfFallback(sFire_std, n, cl);
+
+  const shots_p50 = percentile(shotsArr, 0.50);
+  const [shots_p50_ci_low, shots_p50_ci_high] = quantileCIForQ(shotsArr, 0.50, cl);
+
+  const reloads_p50 = percentile(reloadsArr, 0.50);
+  const [reloads_p50_ci_low, reloads_p50_ci_high] = quantileCIForQ(reloadsArr, 0.50, cl);
+
+  const reload_time_p50 = percentile(reloadTimeArr, 0.50);
+  const [reload_time_p50_ci_low, reload_time_p50_ci_high] = quantileCIForQ(reloadTimeArr, 0.50, cl);
+
+  const fire_time_p50 = percentile(fireTimeArr, 0.50);
+  const [fire_time_p50_ci_low, fire_time_p50_ci_high] = quantileCIForQ(fireTimeArr, 0.50, cl);
+
+  return {
+    ttk_mean, ttk_mean_ci_low, ttk_mean_ci_high,
+    ttk_p50, ttk_p50_ci_low, ttk_p50_ci_high,
+    ttk_p95, ttk_p95_ci_low, ttk_p95_ci_high,
+    ttk_std: ttk_sd,
+    ttk_std_pct: (ttk_mean > 0 ? (ttk_sd / ttk_mean) : null),
+
+    shots_mean: sShots_mean,
+    shots_std: sShots_std,
+    shots_std_pct: (sShots_mean > 0 ? (sShots_std / sShots_mean) : null),
+    shots_ci_half: sShots_half,
+      shots_mean_ci_low: sShots_mean - sShots_half,
+      shots_mean_ci_high: sShots_mean + sShots_half,
+    reloads_mean: sRel_mean,
+    reloads_std: sRel_std,
+    reloads_std_pct: (sRel_mean > 0 ? (sRel_std / sRel_mean) : null),
+    reloads_ci_half: sRel_half,
+      reloads_mean_ci_low: sRel_mean - sRel_half,
+      reloads_mean_ci_high: sRel_mean + sRel_half,
+    reload_time_mean: sRTime_mean,
+    reload_time_std: sRTime_std,
+    reload_time_std_pct: (sRTime_mean > 0 ? (sRTime_std / sRTime_mean) : null),
+    reload_time_ci_half: sRTime_half,
+      reload_time_mean_ci_low: sRTime_mean - sRTime_half,
+      reload_time_mean_ci_high: sRTime_mean + sRTime_half,
+    fire_time_mean: sFire_mean,
+    fire_time_std: sFire_std,
+    fire_time_std_pct: (sFire_mean > 0 ? (sFire_std / sFire_mean) : null),
+    fire_time_ci_half: sFire_half,
+      fire_time_mean_ci_low: sFire_mean - sFire_half,
+      fire_time_mean_ci_high: sFire_mean + sFire_half,
+
+    shots_p50, shots_p50_ci_low, shots_p50_ci_high,
+    reloads_p50, reloads_p50_ci_low, reloads_p50_ci_high,
+    reload_time_p50, reload_time_p50_ci_low, reload_time_p50_ci_high,
+    fire_time_p50, fire_time_p50_ci_low, fire_time_p50_ci_high,
+  };
+}
+
+
   // Public API
   return {
     clamp01,
@@ -597,6 +867,15 @@ function unapplyAttachments(stats, combo){
     stddev,
     percentile,
     zForCL,
-    quantileCI
+    quantileCI,
+
+    // shared helpers
+    groupPatchByWeapon,
+    hasPatchForWeapon,
+    buildConfigs,
+    buildTargetLookup,
+    resolveTargetSpec,
+    targetTotals,
+    simulateRowStats
   };
 });

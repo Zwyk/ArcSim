@@ -26,44 +26,9 @@ try{
   patch = [];
 }
 
-// Build: weaponName -> [modObj, modObj, ...]
-function groupPatchModsByWeapon(patchArr){
-  const out = new Map();
-  for (const it of (patchArr || [])){
-    if (!it) continue;
-    const compat = it.compatible ?? it.weapons ?? it.weapon ?? it.weapon_name;
-    const list = Array.isArray(compat) ? compat
-      : (typeof compat === "string" ? [compat] : null);
-    if (!list || !list.length) continue;
-
-    // Remove routing keys; remaining keys are treated like attachment mods.
-    const mod = { ...it };
-    delete mod.compatible;
-    delete mod.weapons;
-    delete mod.weapon;
-    delete mod.weapon_name;
-
-    for (const wName of list){
-      const key = String(wName || "").trim();
-      if (!key) continue;
-      if (!out.has(key)) out.set(key, []);
-      out.get(key).push(mod);
-    }
-  }
-  return out;
-}
-
-const patchModsByWeapon = groupPatchModsByWeapon(patch);
-
-// Build a map shaped like attachments map so we can reuse getTypeMapForWeapon() fuzzy matching.
-// Map<key, Map<"patch", modList[]>>
-const patchMap = new Map();
-for (const [k, mods] of patchModsByWeapon.entries()){
-  const key = String(k || "").trim();
-  if (!key) continue;
-  if (!patchMap.has(key)) patchMap.set(key, new Map([["patch", []]]));
-  patchMap.get(key).get("patch").push(...(mods || []));
-}
+// Patch map shaped like attachments map so we can reuse getTypeMapForWeapon() fuzzy matching.
+// Map<weaponName, Map<"patch", patchItems[]>>
+const patchMap = SimCore.groupPatchByWeapon(patch);
 
 // Load shields
 const shieldsRaw = JSON.parse(
@@ -85,46 +50,38 @@ const TARGETS = normalizeShields(shieldsRaw);
 
 // Multi-target default scenario to include in presets (appended after single-target shields)
 const DEFAULT_MULTI_TARGET = ["Medium","Light","Light"]; // change here if you want e.g. ["Light","Light","Light"]
+
+
 function buildTargetScenarios(TARGETS_MAP){
   const out = [];
 
-  // Build a loose lookup so DEFAULT_MULTI_TARGET can use either ids or labels (space-insensitive).
-  const norm = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "");
-  const lookup = new Map();
-
+  // Single-target scenarios remain keyed by id
   for (const id of Object.keys(TARGETS_MAP)){
     const t = TARGETS_MAP[id];
-
-    // Single-target scenarios remain keyed by id
-    out.push({ name: id, target: t, hp: t.hp, shield: t.shield, dr: t.dr });
-
-    lookup.set(norm(id), id);
-    if (t?.label) lookup.set(norm(t.label), id);
-    if (t?.name) lookup.set(norm(t.name), id);
+    const totals = SimCore.targetTotals(t);
+    out.push({ name: id, target: t, ...totals });
   }
 
-  // Append the multi-target example if all parts exist
+  // Append the multi-target example (ids or labels; space-insensitive)
   const parts = DEFAULT_MULTI_TARGET.slice();
-  const resolved = parts.map(p => lookup.get(norm(p)));
-  const missing = parts.filter((p, i) => !resolved[i]);
-
-  if (parts.length > 1 && missing.length === 0){
-    const label = parts.join("+");
-    const arr = resolved.map(id => TARGETS_MAP[id]);
-
-    const hp = arr.reduce((s,t)=>s + (+t.hp || 0), 0);
-    const shield = arr.reduce((s,t)=>s + (+t.shield || 0), 0);
-    const dr = arr[0]?.dr ?? 0;
-
-    out.push({ name: label, target: arr, hp, shield, dr });
-  } else {
-    console.warn("[warn] DEFAULT_MULTI_TARGET skipped (missing shield ids/labels):", { parts, missing });
+  if (parts.length > 1){
+    try{
+      const lookup = SimCore.buildTargetLookup(TARGETS_MAP);
+      const label = parts.join("+");
+      const tgt = SimCore.resolveTargetSpec(TARGETS_MAP, label, lookup);
+      const totals = SimCore.targetTotals(tgt);
+      out.push({ name: label, target: tgt, ...totals });
+    }catch(e){
+      console.warn("[warn] DEFAULT_MULTI_TARGET skipped:", { parts, error: String(e?.message || e) });
+    }
   }
 
   return out;
 }
 
 const TARGET_SCENARIOS = buildTargetScenarios(TARGETS);
+
+
 
 
 const {
@@ -137,14 +94,9 @@ const {
   combosForTypes,
   applyAttachments,
   unapplyMods,
-  shotsToKillTrial,
   shotsToKillWithSeq,
   ttkAndReloadsFromShots,
-  mean,
-  stddev,
-  percentile,
-  zForCL,
-  quantileCI,
+  simulateRowStats,
 } = SimCore;
 
 // (removed regex/eval import; using VM sandbox functions above)
@@ -168,10 +120,6 @@ const OPT = parseArgs(process.argv);
 console.log("Preset generation options:", OPT);
 const PRECOMP_TRIALS = (Number.isFinite(OPT.trials) && OPT.trials > 0) ? OPT.trials : 500000;
 const PRECOMP_CI = OPT.confidence ?? 0.95;
-function meanCIFromSd(mu, sd, n, z){
-  const se = sd / Math.sqrt(n);
-  return [mu - z * se, mu + z * se];
-}
 
 function combosCountForTypes(typeMap){
   if (!typeMap || !typeMap.keys) return 1;
@@ -312,7 +260,6 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
   const pBody = w.body / sum;
   const pHead = w.head / sum;
   const pLimbs = w.limbs / sum;
-  const z = zForCL(ciLevel);
   const attByWeapon = groupAttachmentsByWeapon(attachments);
   const filterWeaponsSet = opt?.filterWeaponsSet || null;
   const isPrepatch = !!opt?.prepatch;
@@ -361,156 +308,39 @@ function runPresetMonteCarlo(profileName, w, trials, ciLevel, seedBase, miss = 0
           // so post-patch vs pre-patch comparisons don't drift when we filter weapons.
           const rowKey = `${profileName}|${stats.weapon}|${tier}|${stats.attachments}|${tName}`;
           const rng = mulberry32((seedBase ^ hash32(rowKey)) >>> 0);
-          const ttks = [];
-          const shotsArr = [];
-          const reloadsArr = [];
-          const reloadTimeArr = [];
-          const fireTimeArr = [];
-          let reloadsSum = 0;
 
-                  for(let k=0;k<trials;k++){
-                    const shotsInfo = shotsToKillTrial(stats, tgt, pBody, pHead, pLimbs, miss, rng);
-                    const shotsForUi = (typeof shotsInfo === "number")
-                      ? shotsInfo
-                      : (shotsInfo?.bullets_to_kill ?? shotsInfo?.shots ?? NaN);
-                    const sim = ttkAndReloadsFromShots(shotsInfo, stats);
-            const ttkVal = sim.ttk;
-            const rels = sim.reloads;
-            const rTime = rels * stats.reload_time_s;
-            const fTime = ttkVal - rTime;
-            ttks.push(ttkVal);
-                    shotsArr.push(shotsForUi);
-            reloadsArr.push(rels);
-            reloadTimeArr.push(rTime);
-            fireTimeArr.push(fTime);
-            reloadsSum += rels;
-          }
+          const post = simulateRowStats(stats, tgt, pBody, pHead, pLimbs, miss, trials, rng, ciLevel);
 
-          ttks.sort((a,b)=>a-b);
-          shotsArr.sort((a,b)=>a-b);
-          reloadsArr.sort((a,b)=>a-b);
-          reloadTimeArr.sort((a,b)=>a-b);
-          fireTimeArr.sort((a,b)=>a-b);
+          rows.push({
+  weapon: stats.weapon,
+  tier,
+  attachments: stats.attachments,
 
-          const n = ttks.length;
-          const ttk_mean = mean(ttks);
-          const sd = stddev(ttks, ttk_mean);
-          const [ttk_mean_ci_low, ttk_mean_ci_high] = meanCIFromSd(ttk_mean, sd, n, z);
+  accuracy_profile: profileName,
+  acc_body: w.body,
+  acc_head: w.head,
+  acc_limbs: w.limbs,
+  miss,
 
-          const ttk_p50 = percentile(ttks, 0.50);
-          const ttk_ci = quantileCI(ttks, ciLevel);
-          const ttk_p50_ci_low = ttk_ci.lo;
-          const ttk_p50_ci_high = ttk_ci.hi;
+  ci_level: ciLevel,
+  n_trials: trials,
 
-          const shots_mean = mean(shotsArr);
-          const shots_sd = stddev(shotsArr, shots_mean);
-          const [shots_mean_ci_low, shots_mean_ci_high] = meanCIFromSd(shots_mean, shots_sd, n, z);
-          const shots_p50 = percentile(shotsArr, 0.50);
-          const shots_ci = quantileCI(shotsArr, ciLevel);
-          const shots_p50_ci_low = shots_ci.lo;
-          const shots_p50_ci_high = shots_ci.hi;
+  target: tName,
+  target_hp: sc.hp,
+  target_shield: sc.shield,
+  target_dr: sc.dr,
 
-          const reloads_mean = mean(reloadsArr);
-          const reloads_sd = stddev(reloadsArr, reloads_mean);
-          const [reloads_mean_ci_low, reloads_mean_ci_high] = meanCIFromSd(reloads_mean, reloads_sd, n, z);
-          const reloads_p50 = percentile(reloadsArr, 0.50);
-          const rel_ci = quantileCI(reloadsArr, ciLevel);
-          const reloads_p50_ci_low = rel_ci.lo;
-          const reloads_p50_ci_high = rel_ci.hi;
+  ...post,
 
-          const reload_time_mean = mean(reloadTimeArr);
-          const reload_time_sd = stddev(reloadTimeArr, reload_time_mean);
-          const [reload_time_mean_ci_low, reload_time_mean_ci_high] = meanCIFromSd(reload_time_mean, reload_time_sd, n, z);
-          const reload_time_p50 = percentile(reloadTimeArr, 0.50);
-          const rtime_ci = quantileCI(reloadTimeArr, ciLevel);
-          const reload_time_p50_ci_low = rtime_ci.lo;
-          const reload_time_p50_ci_high = rtime_ci.hi;
+  damage_per_bullet: stats.damage_per_bullet,
+  fire_rate_bps: stats.fire_rate_bps,
+  mag_size: stats.mag_size,
+  reload_time_s: stats.reload_time_s,
+  reload_amount: stats.reload_amount,
+  headshot_mult: stats.headshot_mult,
+  limbs_mult: stats.limbs_mult,
+          });
 
-          const fire_time_mean = mean(fireTimeArr);
-          const fire_time_sd = stddev(fireTimeArr, fire_time_mean);
-          const [fire_time_mean_ci_low, fire_time_mean_ci_high] = meanCIFromSd(fire_time_mean, fire_time_sd, n, z);
-          const fire_time_p50 = percentile(fireTimeArr, 0.50);
-          const ftime_ci = quantileCI(fireTimeArr, ciLevel);
-          const fire_time_p50_ci_low = ftime_ci.lo;
-          const fire_time_p50_ci_high = ftime_ci.hi;
-
-          const row = {
-            weapon: stats.weapon,
-            tier,
-            attachments: stats.attachments,
-
-            accuracy_profile: profileName,
-            acc_body: w.body, acc_head: w.head, acc_limbs: w.limbs,
-
-            ci_level: ciLevel,
-            n_trials: trials,
-
-            target: tName,
-            target_hp: sc.hp, target_shield: sc.shield, target_dr: sc.dr,
-
-            ttk_p50,
-            ttk_p50_ci_low,
-            ttk_p50_ci_high,
-
-            ttk_mean,
-            ttk_mean_ci_low,
-            ttk_mean_ci_high,
-            ttk_std: sd,
-            ttk_std_pct: (ttk_mean > 0 ? (sd / ttk_mean) : null),
-            n_trials: trials,
-
-            // per-metric stats (mean/std/mean-CI) for shots, reloads, reload time, fire time
-            shots_mean,
-            shots_mean_ci_low,
-            shots_mean_ci_high,
-            shots_std: shots_sd,
-            shots_std_pct: (shots_mean > 0 ? (shots_sd / shots_mean) : null),
-            shots_p50,
-            shots_p50_ci_low,
-            shots_p50_ci_high,
-
-            reloads_mean,
-            reloads_mean_ci_low,
-            reloads_mean_ci_high,
-            reloads_std: reloads_sd,
-            reloads_std_pct: (reloads_mean > 0 ? (reloads_sd / reloads_mean) : null),
-            reloads_p50,
-            reloads_p50_ci_low,
-            reloads_p50_ci_high,
-
-            reload_time_mean,
-            reload_time_mean_ci_low,
-            reload_time_mean_ci_high,
-            reload_time_std: reload_time_sd,
-            reload_time_std_pct: (reload_time_mean > 0 ? (reload_time_sd / reload_time_mean) : null),
-            reload_time_p50,
-            reload_time_p50_ci_low,
-            reload_time_p50_ci_high,
-
-            fire_time_mean,
-            fire_time_mean_ci_low,
-            fire_time_mean_ci_high,
-            fire_time_std: fire_time_sd,
-            fire_time_std_pct: (fire_time_mean > 0 ? (fire_time_sd / fire_time_mean) : null),
-            fire_time_p50,
-            fire_time_p50_ci_low,
-            fire_time_p50_ci_high,
-
-            
-
-            damage_per_bullet: stats.damage_per_bullet,
-            fire_rate_bps: stats.fire_rate_bps,
-            mag_size: stats.mag_size,
-            reload_time_s: stats.reload_time_s,
-            reload_amount: stats.reload_amount,
-            headshot_mult: stats.headshot_mult,
-            limbs_mult: stats.limbs_mult,
-          };
-
-          row.miss = miss;
-          row.n_trials = trials;
-          row.ci_level = ciLevel;
-          rows.push(row);
           totalConfigs++;
           if (progress.tty){
             progress.render(totalConfigs);
