@@ -680,6 +680,56 @@ function getDefaultWeaponsCached(){
   return __defaultWeaponsPromise;
 }
 
+// --- Tier upgrade capability (used to decide whether to display the '+' suffix)
+// Some weapons have no tier upgrades at all (weapons.json has tier_mods = {}).
+// In that case, the UI should NOT show the '+' suffix even if tiers 2-4 are present in rows.
+let WEAPON_HAS_TIER_UPGRADES = new Map(); // weaponName -> boolean
+
+function weaponHasTierUpgradesByDef(w){
+  const tm = w && w.tier_mods;
+  if (!tm || typeof tm !== "object") return false;
+  const keys = Object.keys(tm);
+  if (!keys.length) return false;
+
+  for (const k of keys){
+    const v = tm[k];
+    if (Array.isArray(v)){
+      for (const x of v){
+        if (x == null) continue;
+        const n = Number(x);
+        if (Number.isFinite(n) && Math.abs(n) > 1e-12) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function rebuildWeaponTierUpgradeMap(weaponsArr){
+  const m = new Map();
+  if (Array.isArray(weaponsArr)){
+    for (const w of weaponsArr){
+      const name = String(w?.name || "").trim();
+      if (!name) continue;
+      m.set(name, weaponHasTierUpgradesByDef(w));
+    }
+  }
+  WEAPON_HAS_TIER_UPGRADES = m;
+}
+
+function weaponHasTierUpgrades(weaponName){
+  const k = String(weaponName || "").trim();
+  if (!k) return true; // default to existing behavior if unknown
+  if (WEAPON_HAS_TIER_UPGRADES && WEAPON_HAS_TIER_UPGRADES.has(k)) return WEAPON_HAS_TIER_UPGRADES.get(k);
+  return true;
+}
+
+async function refreshWeaponTierUpgradeMap(){
+  try{
+    const weapons = getWeaponsOverride() || await getDefaultWeaponsCached();
+    rebuildWeaponTierUpgradeMap(weapons);
+  }catch{ /* non-fatal */ }
+}
+
 // Default shields/attachments cache
 let __defaultShieldsPromise = null;
 function getDefaultShieldsCached(){
@@ -1683,6 +1733,10 @@ async function init(){
     if (patchMeta) PATCH_BY_WEAPON = buildPatchWeaponMap(patchMeta);
   }catch{ /* optional */ }
 
+  // Load weapons definition (default or override) so UI can know which weapons
+  // actually have tier upgrades (to decide whether to display the '+' suffix).
+  await refreshWeaponTierUpgradeMap();
+
 
   const presetSelect = $("presetSelect");
   presetSelect.innerHTML = "";
@@ -2223,6 +2277,11 @@ function initWeaponsEditor(){
       setOverride(currentOverrideKey(), parsed);
       showStatus('Saved override to session.');
       updateOverrideCue();
+      // Keep tier-upgrade flags in sync if weapons.json was overridden
+      if ((fileSelect?.value || 'weapons') === 'weapons'){
+        // fire-and-forget
+        refreshWeaponTierUpgradeMap();
+      }
     }catch(e){
       showStatus('Save failed: ' + String(e?.message || e));
     }
@@ -2233,6 +2292,10 @@ function initWeaponsEditor(){
     showStatus('Reset override.');
     updateOverrideCue();
     loadSelectedFile();
+    // Keep tier-upgrade flags in sync if weapons override was cleared
+    if ((fileSelect?.value || 'weapons') === 'weapons'){
+      refreshWeaponTierUpgradeMap();
+    }
   });
 
   downloadBtn?.addEventListener('click', async () => {
@@ -2844,10 +2907,12 @@ function drawBestPerWeaponChart(rowsFiltered){
     const maxTierPresent = Math.max(...bestByTier.keys());
     const hasHigherTier = Number.isFinite(maxTierPresent) && maxTierPresent > chosenTier;
 
-    // Show '+' whenever we're representing multiple tiers:
+    // Show '+' whenever we're representing multiple tiers, BUT only if the weapon
+    // actually has tier upgrades (i.e. tier_mods isn't empty/all-zero in weapons.json).
     // - multiple tiers are within tolerance of the best, OR
     // - a lower tier is chosen even though higher tiers exist (e.g. Tier I beats Tier II+).
-    bestRows.push({ row: chosenRow, tierPlus: (closeTiers.length > 1) || hasHigherTier });
+    const canTierUpgrade = weaponHasTierUpgrades(w);
+    bestRows.push({ row: chosenRow, tierPlus: canTierUpgrade && ((closeTiers.length > 1) || hasHigherTier) });
   }
   // Order bars by selected ordering metric (ascending)
   const orderKey = uiState.graphOrderBy || "ttk";

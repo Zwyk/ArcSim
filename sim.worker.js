@@ -18,24 +18,6 @@ const {
 } = self.SimCore;
 
 
-// Shared helper: apply one bullet to the target state
-// state: { hp, sh, dr }
-// zone: 'miss' | 'body' | 'head' | 'limbs'
-function applyMultiBulletShot(stats, state, zone){
-  if(zone === 'miss') return;
-  let mult = 1.0;
-  if(zone === 'head') mult = stats.headshot_mult;
-  else if(zone === 'limbs') mult = stats.limbs_mult;
-  // body stays 1.0
-  const dmgPerBullet = stats.damage_per_bullet * mult;
-  if(state.sh > 0){
-    state.sh = Math.max(0, state.sh - dmgPerBullet);
-    state.hp -= dmgPerBullet * (1 - state.dr);
-  } else {
-    state.hp -= dmgPerBullet;
-  }
-}
-
 // Deterministic zone sequence generator, length `len`.
 // Emits array of zones using probabilities, stable for given rng.
 function makeZoneSequence(pBody, pHead, pLimbs, pMiss, len, rng){

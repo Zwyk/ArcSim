@@ -240,16 +240,32 @@ function unapplyAttachments(stats, combo){
   return unapplyMods(stats, combo, { setAttachmentsLabel: true });
 }
 
-  // Monte-Carlo shot loop, with bullets-per-shot and per-bullet zone/miss rolls.
+  
+  // Apply a single bullet's damage to a target state.
+  // IMPORTANT GAME RULE:
+  // - Shield is reduced by BASE bullet damage (before head/limb multiplier).
+  // - HP damage uses the hit-zone multiplier; while shield is up, damage reduction applies.
+  // state: { hp, sh, dr }
+  function applyBulletToState(stats, state, mult){
+    const baseDmg = stats.damage_per_bullet;
+    const dmg = baseDmg * mult;
+
+    if (state.sh > 0){
+      state.sh = Math.max(0, state.sh - baseDmg);
+      state.hp -= dmg * (1 - state.dr);
+    } else {
+      state.hp -= dmg;
+    }
+  }
+
+// Monte-Carlo shot loop, with bullets-per-shot and per-bullet zone/miss rolls.
   // Supports either a single target object, or an array of targets for sequential multi-target sims.
   function shotsToKillTrial(stats, target, pBody, pHead, pLimbs, pMiss, rng){
     const targets = Array.isArray(target) ? target : [target];
     if (!targets.length) return Infinity;
 
     let idx = 0;
-    let hp = targets[0].hp;
-    let sh = targets[0].shield;
-    let dr = targets[0].dr;
+    const state = { hp: targets[0].hp, sh: targets[0].shield, dr: targets[0].dr };
 
     const bulletsPerShot = stats.bullets_per_shot || 1;
     let shots = 0;
@@ -263,16 +279,16 @@ function unapplyAttachments(stats, combo){
       idx++;
       if (idx >= targets.length) return false;
       const t = targets[idx];
-      hp = t.hp;
-      sh = t.shield;
-      dr = t.dr;
+      state.hp = t.hp;
+      state.sh = t.shield;
+      state.dr = t.dr;
       return true;
     }
 
     // Loop until all targets are dead
     while (idx < targets.length){
       // If current target already dead (edge cases), advance
-      if (ceilN(hp) < 1.0){
+      if (ceilN(state.hp) < 1.0){
         if (!advanceTarget()) break;
         continue;
       }
@@ -285,7 +301,7 @@ function unapplyAttachments(stats, combo){
       // Each bullet in the shot gets its own miss + hit-zone roll
       for (let b = 0; b < bulletsPerShot && idx < targets.length; b++){
         // If current target died between bullets (possible if we advanced), ensure we're on a live target
-        while (idx < targets.length && ceilN(hp) < 1.0){
+        while (idx < targets.length && ceilN(state.hp) < 1.0){
           if (!advanceTarget()) break;
         }
         if (idx >= targets.length) break;
@@ -303,17 +319,10 @@ function unapplyAttachments(stats, combo){
         } else {
           mult = stats.limbs_mult;
         }
-        const dmg = stats.damage_per_bullet * mult;
-
-        if (sh > 0){
-          sh = Math.max(0, sh - dmg);
-          hp -= dmg * (1 - dr);
-        } else {
-          hp -= dmg;
-        }
+        applyBulletToState(stats, state, mult);
 
         // If we killed the current target with this bullet:
-        if (ceilN(hp) < 1.0){
+        if (ceilN(state.hp) < 1.0){
           // If that was the last target, record kill bullet and finish this shot
           if (idx === targets.length - 1){
             killBullet = b;
@@ -342,9 +351,7 @@ function unapplyAttachments(stats, combo){
     if (!targets.length) return Infinity;
 
     let idx = 0;
-    let hp = targets[0].hp;
-    let sh = targets[0].shield;
-    let dr = targets[0].dr;
+    const state = { hp: targets[0].hp, sh: targets[0].shield, dr: targets[0].dr };
 
     const bulletsPerShot = stats.bullets_per_shot || 1;
 
@@ -358,14 +365,14 @@ function unapplyAttachments(stats, combo){
       idx++;
       if (idx >= targets.length) return false;
       const t = targets[idx];
-      hp = t.hp;
-      sh = t.shield;
-      dr = t.dr;
+      state.hp = t.hp;
+      state.sh = t.shield;
+      state.dr = t.dr;
       return true;
     }
 
     while (idx < targets.length){
-      if (ceilN(hp) < 1.0){
+      if (ceilN(state.hp) < 1.0){
         if (!advanceTarget()) break;
         continue;
       }
@@ -373,7 +380,7 @@ function unapplyAttachments(stats, combo){
       shots++;
 
       for (let b = 0; b < bulletsPerShot && idx < targets.length; b++){
-        while (idx < targets.length && ceilN(hp) < 1.0){
+        while (idx < targets.length && ceilN(state.hp) < 1.0){
           if (!advanceTarget()) break;
         }
         if (idx >= targets.length) break;
@@ -383,17 +390,9 @@ function unapplyAttachments(stats, combo){
         if (zone === "head")      mult = stats.headshot_mult;
         else if (zone === "limbs") mult = stats.limbs_mult;
 
-        const baseDmg = stats.damage_per_bullet;
-        const dmg = baseDmg * mult;
+        applyBulletToState(stats, state, mult);
 
-        if (sh > 0){
-          sh = Math.max(0, sh - baseDmg);
-          hp -= dmg * (1 - dr);
-        } else {
-          hp -= dmg;
-        }
-
-        if (ceilN(hp) < 1.0){
+        if (ceilN(state.hp) < 1.0){
           if (idx === targets.length - 1){
             killBullet = b;
             idx = targets.length;
@@ -590,6 +589,7 @@ function unapplyAttachments(stats, combo){
     unapplyAttachments,
     applyMods,
     unapplyMods,
+    applyBulletToState,
     shotsToKillTrial,
     shotsToKillWithSeq,
     ttkAndReloadsFromShots,
