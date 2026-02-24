@@ -323,6 +323,9 @@ function applyMods(stats, modsList, opts){
     if (!m || m._none) continue;
     if (m.name) names.push(m.name);
 
+    const dmgAdd = (m.damage_add != null) ? m.damage_add : (m.dmg != null ? m.dmg : null);
+    const reloadTimeAdd = (m.reload_time != null) ? m.reload_time : (m.reload_time_s != null ? m.reload_time_s : null);
+    const hsMultAdd = (m.hs_mult != null) ? m.hs_mult : null;
     // Alias support (typo-proofing)
     const magAdd = (m.mag_add != null) ? m.mag_add : (m.mad_add != null ? m.mad_add : null);
 
@@ -334,15 +337,16 @@ function applyMods(stats, modsList, opts){
 
     if (m.reload_time_mult != null)  out.reload_time_s *= m.reload_time_mult;
     if (m.reload_time_pct != null)   out.reload_time_s *= (1 + (m.reload_time_pct / 100));
-    if (m.reload_time != null)       out.reload_time_s += m.reload_time;
+    if (reloadTimeAdd != null)       out.reload_time_s += reloadTimeAdd;
 
     if (m.damage_mult != null)       out.damage_per_bullet *= m.damage_mult;
-    if (m.damage_add != null)        out.damage_per_bullet += m.damage_add;
+    if (dmgAdd != null)              out.damage_per_bullet += dmgAdd;
 
     if (m.reload_amount_add != null) out.reload_amount += m.reload_amount_add;
     if (m.reload_amount != null)     out.reload_amount = m.reload_amount;
 
     if (m.headshot_mult != null)     out.headshot_mult *= m.headshot_mult;
+    if (hsMultAdd != null)           out.headshot_mult += hsMultAdd;
     if (m.limbs_mult != null)        out.limbs_mult *= m.limbs_mult;
   }
 
@@ -364,6 +368,9 @@ function unapplyMods(stats, modsList, opts){
     if (!m || m._none) continue;
     if (m.name) names.push(m.name);
 
+    const dmgAdd = (m.damage_add != null) ? m.damage_add : (m.dmg != null ? m.dmg : null);
+    const reloadTimeAdd = (m.reload_time != null) ? m.reload_time : (m.reload_time_s != null ? m.reload_time_s : null);
+    const hsMultAdd = (m.hs_mult != null) ? m.hs_mult : null;
     const magAdd = (m.mag_add != null) ? m.mag_add : (m.mad_add != null ? m.mad_add : null);
 
     if (magAdd != null)              out.mag_size -= magAdd;
@@ -374,14 +381,15 @@ function unapplyMods(stats, modsList, opts){
 
     if (m.reload_time_mult != null)  out.reload_time_s /= m.reload_time_mult;
     if (m.reload_time_pct != null)   out.reload_time_s /= (1 + (m.reload_time_pct / 100));
-    if (m.reload_time != null)       out.reload_time_s -= m.reload_time;
+    if (reloadTimeAdd != null)       out.reload_time_s -= reloadTimeAdd;
 
     if (m.damage_mult != null)       out.damage_per_bullet /= m.damage_mult;
-    if (m.damage_add != null)        out.damage_per_bullet -= m.damage_add;
+    if (dmgAdd != null)              out.damage_per_bullet -= dmgAdd;
 
     if (m.reload_amount_add != null) out.reload_amount -= m.reload_amount_add;
 
     if (m.headshot_mult != null)     out.headshot_mult /= m.headshot_mult;
+    if (hsMultAdd != null)           out.headshot_mult -= hsMultAdd;
     if (m.limbs_mult != null)        out.limbs_mult /= m.limbs_mult;
   }
 
