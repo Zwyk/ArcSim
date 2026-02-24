@@ -7,7 +7,7 @@
   },
   {
     "patch": "1.17.0",
-    "compatible": ["Keetle"],
+    "compatible": ["Kettle"],
     "dmg": -1.5
   },
   {
