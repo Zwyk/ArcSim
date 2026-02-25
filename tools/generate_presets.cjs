@@ -1,4 +1,6 @@
 // node tools/generate_presets.cjs
+// node tools/generate_presets.cjs --skip-existing
+// node tools/generate_presets.cjs --resume
 const fs = require("fs");
 const path = require("path");
 // Shared core module
@@ -85,12 +87,27 @@ const {
 
 // --------- helpers ---------
 function parseArgs(argv){
-  const out = { trials: 500000, confidence: 0.95, seed: 1337 };
+  const out = {
+    trials: 500000,
+    confidence: 0.95,
+    seed: 1337,
+    skipExisting: false,
+    resume: false,
+    explicitTrials: false,
+  };
   for (let i = 2; i < argv.length; i++){
     const a = argv[i];
+    if (a === "--skip-existing" || a === "--resume") {
+      out.skipExisting = true;
+      if (a === "--resume") out.resume = true;
+      continue;
+    }
     const [k, vRaw] = a.includes("=") ? a.split("=", 2) : [a, argv[i+1]];
     const v = vRaw;
-    if (k === "--trials") out.trials = Math.max(100, parseInt(v, 10));
+    if (k === "--trials") {
+      out.trials = Math.max(100, parseInt(v, 10));
+      out.explicitTrials = true;
+    }
     if (k === "--confidence") out.confidence = Math.max(0.5, Math.min(0.999, parseFloat(v)));
     if (k === "--seed") out.seed = (parseInt(v, 10) >>> 0);
     if (!a.includes("=") && (k === "--trials" || k === "--confidence" || k === "--seed")) i++;
@@ -98,10 +115,55 @@ function parseArgs(argv){
   return out;
 }
 
+function inferLastTrialsFromPresetsIndex(){
+  const rel = path.join("data", "presets", "presets.json");
+  const abs = path.join(ROOT, rel);
+  if (!fs.existsSync(abs)) return null;
+  try {
+    const index = JSON.parse(fs.readFileSync(abs, "utf8"));
+    if (!Array.isArray(index)) return null;
+    const values = index
+      .map(r => r?.n_trials)
+      .filter(v => Number.isFinite(v) && v > 0)
+      .map(v => Math.floor(v));
+    if (!values.length) return null;
+
+    const counts = new Map();
+    for (const v of values){
+      counts.set(v, (counts.get(v) || 0) + 1);
+    }
+    let best = values[0];
+    let bestCount = counts.get(best) || 0;
+    for (const [v, c] of counts.entries()){
+      if (c > bestCount){
+        best = v;
+        bestCount = c;
+      }
+    }
+    return best;
+  } catch (e) {
+    console.warn("[warn] Failed reading last n_trials from data/presets/presets.json:", String(e?.message || e));
+    return null;
+  }
+}
+
 const OPT = parseArgs(process.argv);
+if (OPT.resume && !OPT.explicitTrials){
+  const inferred = inferLastTrialsFromPresetsIndex();
+  if (Number.isFinite(inferred) && inferred > 0){
+    OPT.trials = inferred;
+    console.log(`[status] --resume: using last n_trials=${inferred}`);
+  } else {
+    console.log("[status] --resume: no prior n_trials found, using default trials");
+  }
+}
 console.log("Preset generation options:", OPT);
 const PRECOMP_TRIALS = (Number.isFinite(OPT.trials) && OPT.trials > 0) ? OPT.trials : 500000;
 const PRECOMP_CI = OPT.confidence ?? 0.95;
+
+function existsRel(rel){
+  return fs.existsSync(path.join(ROOT, rel));
+}
 
 function makeProgress(label, total){
   const tty = !!process.stdout.isTTY;
@@ -463,13 +525,18 @@ let bodyRows = null;
 let typicalRows = null;
 
 for (const p of presets) {
+  const outRel = path.join("data/presets", p.file);
+  if (OPT.skipExisting && existsRel(outRel)){
+    console.log(`[status] Skipping existing preset: ${p.id} (${p.file})`);
+    continue;
+  }
   console.log(`[status] Generating preset: ${p.id} (${p.profile})`);
   const rows = p.mode === "mc"
     ? runPresetMonteCarlo(p.profile, p.w, p.trials, p.ci, p.seed, p.miss)
     : runPresetDeterministic(p.profile, p.w);
 
   // write the actual precomputed data for the website
-  writeJSON(path.join("data/presets", p.file), rows);
+  writeJSON(outRel, rows);
   console.log(`[status] Wrote ${p.file}: ${rows.length} rows`);
 
   if (p.profile === "Body only") bodyRows = rows;
@@ -487,11 +554,16 @@ for (const w of weapons){
 if (affectedWeapons.size){
   console.log(`[status] Generating prepatch baselines for ${affectedWeapons.size} affected weapons...`);
   for (const p of presets){
+    const preOutRel = path.join("data/presets/prepatch", p.file);
+    if (OPT.skipExisting && existsRel(preOutRel)){
+      console.log(`[status] Skipping existing prepatch preset: ${p.id} (prepatch/${p.file})`);
+      continue;
+    }
     console.log(`[status] Prepatch: ${p.id} (${p.profile})`);
     const preRows = p.mode === "mc"
       ? runPresetMonteCarlo(p.profile, p.w, p.trials, p.ci, p.seed, p.miss, { prepatch:true, filterWeaponsSet: affectedWeapons, patchMap })
       : runPresetDeterministic(p.profile, p.w, { prepatch:true, filterWeaponsSet: affectedWeapons, patchMap });
-    writeJSON(path.join("data/presets/prepatch", p.file), preRows);
+    writeJSON(preOutRel, preRows);
     console.log(`[status] Wrote prepatch/${p.file}: ${preRows.length} rows`);
   }
 } else {
