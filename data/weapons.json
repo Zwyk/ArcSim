@@ -198,11 +198,11 @@
   },
   {
     "name": "Il Toro",
-    "damage": 7.5,
+    "damage": 7.0,
     "nb_bullets": 9,
-    "fire_rate": 0.70,
+    "fire_rate": 0.6333,
     "mag_size": 5,
-    "reload_time_s": 0.66,
+    "reload_time_s": 0.6333,
     "reload_amount": 1,
     "tier_mods": {
       "fire_rate_pct": [

@@ -1,5 +1,12 @@
 [
   {
+    "patch": "1.20.0",
+    "compatible": ["Il Toro"],
+    "dmg": -0.5,
+    "fire_rate": -0.0667,
+    "reload_time": -0.15
+  },
+  {
     "patch": "1.17.0",
     "compatible": ["Stitcher"],
     "hs_mult": -0.75,
