@@ -88,6 +88,7 @@ body{
 
 .brand .title{ font-weight:800; font-size:20px; }
 .brand .titleRow{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.brand .titleActions{ display:flex; align-items:center; gap:8px; }
 .brand .subtitle{ color:var(--muted); font-size:12px; margin-top:4px; }
 
 .panel{
